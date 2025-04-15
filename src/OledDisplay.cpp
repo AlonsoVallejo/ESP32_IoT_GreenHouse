@@ -1,7 +1,7 @@
 #include <OledDisplay.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "OledDisplay.h"
+#include <Wire.h>
 
 OledDisplay::OledDisplay(uint8_t width, uint8_t height, uint8_t lcd_addr)
     : display(width, height, &Wire, -1), lcd_addr(lcd_addr) {}
@@ -30,6 +30,7 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, const char* data) {
 void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, uint16_t data) {
     display.setCursor(posX, posY);
     display.print(data);
+    display.display();
 }
 
 void OledDisplay::PrintdisplayData() {
