@@ -4,14 +4,16 @@
 
 using namespace std;
 
-#define DTH11_SENS_PIN    (13)
+/* ESP32 GPIOS */
+#define DTH11_SENS_PIN    (13) 
 #define LIGHT_SENS_PIN    (36)
 #define LED12_PWM_PIN     (12)
 #define TEMP_HUM_SENS_PIN (25)
 
-#define TEMP_HUM_INTERVAL (5000)  /* Temperature & humidity update every 5 sec */ 
-#define POT_INTERVAL      (100)   /* Potentiometer update every 100 ms */
-#define DISPLAY_INTERVAL  (300)   /* Display refresh every 500 ms */ 
+/* Defined times for each task in ms */
+#define TEMP_HUM_INTERVAL_5000_MS (5000)  
+#define POT_INTERVAL_100_MS       (100)   
+#define DISPLAY_INTERVAL_300_MS   (300)   
 
 class Sensor {
 private:
@@ -77,36 +79,67 @@ public:
   }
 };
 
-struct TaskData {
+/* Struct to store all sensor, actuator, and display-related data */
+struct SystemData {
   VarResSensor* potSensor;
-  OledDisplay* oledDisplay;
-  Actuator* led;
   TemperatureHumiditySensor* tempHumSensor;
+  Actuator* led;
+  OledDisplay* oledDisplay;
   uint16_t potValue;
   uint16_t temperature;
   uint16_t humidity;
 };
 
-void TaskPotentiometer(void* pvParameters) {
-  TaskData* data = (TaskData*) pvParameters;
+void TaskReadSensors(void *pvParameters) {
+  SystemData* data = (SystemData*) pvParameters;
+  
+  unsigned long lastPotRead = 0;
+  unsigned long lastTempHumRead = 0;
+
   for (;;) {
-      data->potValue = data->potSensor->readValue();
+      unsigned long currentMillis = millis();
+
+      /* Read potentiometer every 1 sec */
+      if (currentMillis - lastPotRead >= POT_INTERVAL_100_MS) {
+          lastPotRead = currentMillis;
+          data->potValue = data->potSensor->readValue();
+      }
+
+      /* Read temperature & humidity every 5 sec */
+      if (currentMillis - lastTempHumRead >= TEMP_HUM_INTERVAL_5000_MS) {
+          lastTempHumRead = currentMillis;
+          data->temperature = data->tempHumSensor->readValue();
+          data->humidity = data->tempHumSensor->readValueHumidity();
+      }
+
+      /** Prevent CPU overloading */
+      vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+
+/* Task: Process sensor data */
+void TaskProcessData(void* pvParameters) {
+  SystemData* data = (SystemData*) pvParameters;
+  for (;;) {
+      // Delay to allow periodic processing
+      vTaskDelay(pdMS_TO_TICKS(100)); 
+  }
+}
+
+/* Task: Control actuators (adjust LED intensity) */
+void TaskControlActuators(void* pvParameters) {
+  SystemData* data = (SystemData*) pvParameters;
+
+  for (;;) {
       data->led->SetLedIntensity(data->potValue);
-      vTaskDelay(pdMS_TO_TICKS(POT_INTERVAL));
+      vTaskDelay(pdMS_TO_TICKS(100));  /* Update actuators every 100ms */
   }
 }
 
-void TaskTempHum(void* pvParameters) {
-  TaskData* data = (TaskData*) pvParameters;
-  for (;;) {
-      data->temperature = data->tempHumSensor->readValue();
-      data->humidity = data->tempHumSensor->readValueHumidity();
-      vTaskDelay(pdMS_TO_TICKS(TEMP_HUM_INTERVAL));
-  }
-}
-
+/* Task: Update display with sensor data */
 void TaskDisplay(void* pvParameters) {
-  TaskData* data = (TaskData*) pvParameters;
+  SystemData* data = (SystemData*) pvParameters;
+
   for (;;) {
       data->oledDisplay->clear();
 
@@ -123,32 +156,35 @@ void TaskDisplay(void* pvParameters) {
       data->oledDisplay->SetdisplayData(90, 20, "%");
 
       data->oledDisplay->PrintdisplayData();
-      vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL));
+      vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS));  /* Refresh display every 300ms */
   }
 }
 
 void setup() {
   Serial.begin(9600);
 
-  TaskData* taskData = new TaskData {
+  /* Allocate memory for struct dynamically */
+  SystemData* systemData = new SystemData {
       new VarResSensor(LIGHT_SENS_PIN, 100),
-      new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-      new Actuator(LED12_PWM_PIN),
       new TemperatureHumiditySensor(TEMP_HUM_SENS_PIN),
-      0, 0, 0 // Initial sensor values
+      new Actuator(LED12_PWM_PIN),
+      new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
+      0, 0, 0  /* Initialize sensor values */
   };
 
-  taskData->oledDisplay->init();
-  taskData->oledDisplay->clear();
-  taskData->oledDisplay->setTextProperties(1, SSD1306_WHITE);
-  taskData->tempHumSensor->dhtSensorInit();
+  systemData->oledDisplay->init();
+  systemData->oledDisplay->clear();
+  systemData->oledDisplay->setTextProperties(1, SSD1306_WHITE);
+  systemData->tempHumSensor->dhtSensorInit();
 
-  xTaskCreate(TaskPotentiometer, "Potentiometer", 2048, taskData, 1, NULL);
-  xTaskCreate(TaskTempHum, "TempHum", 2048, taskData, 1, NULL);
-  xTaskCreate(TaskDisplay, "Display", 2048, taskData, 1, NULL);
+  /* Create FreeRTOS tasks, passing systemData struct instead of using global variables */
+  xTaskCreate(TaskReadSensors, "ReadSensors", 2048, systemData, 2, NULL);
+  xTaskCreate(TaskProcessData, "ProcessData", 2048, systemData, 2, NULL);  // New task
+  xTaskCreate(TaskControlActuators, "ControlActuators", 2048, systemData, 1, NULL);
+  xTaskCreate(TaskDisplay, "Display", 2048, systemData, 1, NULL);
 }
 
+/* Empty loop since FreeRTOS manages execution in tasks */
 void loop() {
-  
-}
 
+}
