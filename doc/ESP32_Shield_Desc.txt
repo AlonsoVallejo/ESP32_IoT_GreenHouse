@@ -1,0 +1,64 @@
+1. External power supply from 8 to 35V or 5V USB (provided through the ESP32 board).
+
+2. Using the 3-pin header JP4, the source of the board's 3.3V can be selected—either from the external power supply or directly from the ESP32 board (powered via USB).
+
+3. Two optocoupled inputs ranging from 5 to 24V (connected to D26 and D27, which can be disconnected via their respective jumpers).
+
+4. Two relay outputs rated at 5A 250Vac or 5A 30Vdc (connected to D4 and D2, and can be disconnected via their respective jumpers).
+
+5. Four push buttons: B1, B2, B3, and B4 (wired to D33, D35, D34, and D32 respectively).
+
+6. Buzzer BUZ1 (connected to D15, with the option to disconnect it via a jumper).
+
+7. Rotary potentiometer RV1 (connected to VP).
+
+8. Connector RT1 for an NTC 10K thermistor temperature sensor (connected to VN).
+
+9. Two Mosfet transistor outputs rated for 36V, 5A (connected to D23 and D19, with jumper-based disconnection).
+
+10. AC dimmer for 220V 5A operation, including:
+   - Zero-crossing detector (connected to D5).
+   - Power Triac with optocoupled triggering (connected to D18).
+   Both signals can be disabled via their respective jumpers.
+
+11. Four user LEDs (connected to D15, D13, D12, and D14, which can be enabled or disabled via the ENL jumper).
+
+12. Real-Time Clock DS1307 connected to:
+   - D22 for SCL (I2C interface with ESP32).
+   - D21 for SDA (I2C interface with ESP32).
+   - D32 for the SOUT line of the DS1307.
+   Includes a battery holder for a CR2032 or CR2025 coin cell.
+
+13. I2C header for OLED display connection:
+   - GND = GND
+   - 3V3 = 3.3V
+   - SCL = SCL line (I2C interface with ESP32)
+   - SDA = SDA line (I2C interface with ESP32)
+
+14. I2C header for accessing:
+   - 3V3 = 3.3V
+   - GND = GND
+   - SCL (D22) = SCL line (I2C interface with ESP32)
+   - SDA (D21) = SDA line (I2C interface with ESP32)
+
+15. COM header for serial communication:
+   - 3V3 = 3.3V
+   - GND = GND
+   - RX2 (D16) = RX2 line (ESP32)
+   - TX2 (D17) = TX2 line (ESP32)
+
+16. DAC1 header for accessing:
+   - GND = GND
+   - 3V3 = 3.3V
+   - D25 = Analog output from Digital-to-Analog Converter 1 (DAC1)
+
+17. DHT11 header for sensor connection:
+   - GND = GND
+   - 3V3 = 3.3V
+   - D13 = Data line for the DHT11 sensor (can be disconnected via a jumper)
+
+18. J15 header for accessing the 3.3V supply of the training board.
+
+19. Male 3-pin header (Signal, Vcc, and GND) for accessing all I/O lines. 
+This allows fast connections to various sensor modules and servomotors. 
+The Vcc lines (V1 and V2) of each I/O set can be set to 3.3V or 5V via the JP1 and JP2 3-pin headers.

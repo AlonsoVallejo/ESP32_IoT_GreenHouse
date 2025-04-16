@@ -17,7 +17,7 @@ private:
 public:
     OledDisplay(uint8_t width, uint8_t height, uint8_t lcd_addr);
     void init();
-    void clear();
+    void clearAllDisplay();
     void setTextProperties(uint8_t textsize, uint8_t color);
     void SetdisplayData(int16_t posX, int16_t posY, const char* data);
     void SetdisplayData(int16_t posX, int16_t posY, uint16_t data);

@@ -140,22 +140,38 @@ void TaskControlActuators(void* pvParameters) {
 void TaskDisplay(void* pvParameters) {
   SystemData* data = (SystemData*) pvParameters;
 
+  uint16_t prevPotValue = 0;
+  uint16_t prevTemperature = 0;
+  uint16_t prevHumidity = 0;
+
   for (;;) {
-      data->oledDisplay->clear();
+      // Check if any value has changed
+      if (data->potValue != prevPotValue || data->temperature != prevTemperature ||  data->humidity != prevHumidity) {
 
-      data->oledDisplay->SetdisplayData(0, 0, "Led Int: ");
-      data->oledDisplay->SetdisplayData(50, 0, data->potValue);
-      data->oledDisplay->SetdisplayData(70, 0, "%");
+          if (data->potValue != prevPotValue) {
+              data->oledDisplay->SetdisplayData(0, 0, "Led Int: ");
+              data->oledDisplay->SetdisplayData(75, 0, data->potValue);
+              data->oledDisplay->SetdisplayData(100, 0, "%");
+              prevPotValue = data->potValue;  // Update previous value
+          }
 
-      data->oledDisplay->SetdisplayData(0, 10, "Temperature: ");
-      data->oledDisplay->SetdisplayData(75, 10, data->temperature);
-      data->oledDisplay->SetdisplayData(90, 10, "C");
+          if (data->temperature != prevTemperature) {
+              data->oledDisplay->SetdisplayData(0, 10, "Temperature: ");
+              data->oledDisplay->SetdisplayData(75, 10, data->temperature);
+              data->oledDisplay->SetdisplayData(100, 10, "C");
+              prevTemperature = data->temperature;  // Update previous value
+          }
 
-      data->oledDisplay->SetdisplayData(0, 20, "Humidity: ");
-      data->oledDisplay->SetdisplayData(75, 20, data->humidity);
-      data->oledDisplay->SetdisplayData(90, 20, "%");
+          if (data->humidity != prevHumidity) {
+              data->oledDisplay->SetdisplayData(0, 20, "Humidity: ");
+              data->oledDisplay->SetdisplayData(75, 20, data->humidity);
+              data->oledDisplay->SetdisplayData(100, 20, "%");
+              prevHumidity = data->humidity;  // Update previous value
+          }
 
-      data->oledDisplay->PrintdisplayData();
+          data->oledDisplay->PrintdisplayData();
+      }
+
       vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS));  /* Refresh display every 300ms */
   }
 }
@@ -173,13 +189,13 @@ void setup() {
   };
 
   systemData->oledDisplay->init();
-  systemData->oledDisplay->clear();
+  systemData->oledDisplay->clearAllDisplay();
   systemData->oledDisplay->setTextProperties(1, SSD1306_WHITE);
   systemData->tempHumSensor->dhtSensorInit();
 
   /* Create FreeRTOS tasks, passing systemData struct instead of using global variables */
   xTaskCreate(TaskReadSensors, "ReadSensors", 2048, systemData, 2, NULL);
-  xTaskCreate(TaskProcessData, "ProcessData", 2048, systemData, 2, NULL);  // New task
+  xTaskCreate(TaskProcessData, "ProcessData", 2048, systemData, 2, NULL);  
   xTaskCreate(TaskControlActuators, "ControlActuators", 2048, systemData, 1, NULL);
   xTaskCreate(TaskDisplay, "Display", 2048, systemData, 1, NULL);
 }
