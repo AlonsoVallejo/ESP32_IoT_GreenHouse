@@ -62,3 +62,8 @@
 19. Male 3-pin header (Signal, Vcc, and GND) for accessing all I/O lines. 
 This allows fast connections to various sensor modules and servomotors. 
 The Vcc lines (V1 and V2) of each I/O set can be set to 3.3V or 5V via the JP1 and JP2 3-pin headers.
+
+20. Available ESP32 GPIOs not used by the shield:
+
+GPIO1 & GPIO3 – Typically used for UART0 (TX/RX), but can be reassigned.
+GPIO16 & GPIO17 – Available, but often used for UART2

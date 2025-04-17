@@ -1,18 +1,20 @@
 #include <Arduino.h>
 #include "OledDisplay.h"
 #include "dht11_sens.h"
+#include "ESP32_shield.h"
 
 using namespace std;
 
-/* ESP32 GPIOS */
-#define DTH11_SENS_PIN    (13) 
-#define LIGHT_SENS_PIN    (36)
-#define LED12_PWM_PIN     (12)
-#define TEMP_HUM_SENS_PIN (25)
+#define SENSOR_POT_PIN        (SHIELD_POTENTIOMETER_VP)
+#define SENSOR_HUM_TEMP_PIN   (SHIELD_DAC1_D25)
+#define SENSOR_LDR_PIN        (SHIELD_PUSHB3_D34) 
+#define ACTUATOR_LED_PWM_PIN  (SHIELD_LED4_D14)
+#define ACTUATOR_RELAY1_PIN   (SHIELD_RELAY1_D4)
 
 /* Defined times for each task in ms */
-#define TEMP_HUM_INTERVAL_5000_MS (5000)  
-#define POT_INTERVAL_100_MS       (100)   
+#define SENSOR_R_SUBTASK_INTERVAL_100_MS  (100)   
+#define SENSOR_R_SUBTASK_INTERVAL_5000_MS (5000)  
+
 #define DISPLAY_INTERVAL_300_MS   (300)   
 
 class Sensor {
@@ -23,8 +25,10 @@ public:
     pinMode(pin, INPUT);
   }
 
-  virtual uint16_t readValue() = 0;
+  /* Pure virtual function to be implemented by derived classes */
+  virtual uint16_t readRawValue() = 0;
 
+  /* Read value from the sensor */
   uint8_t getPin() const {
     return pin;
   }
@@ -37,7 +41,12 @@ private:
 public:
 VarResSensor(uint8_t pin, uint8_t maxValue) : Sensor(pin), maxValue(maxValue) {}
 
-  uint16_t readValue() override {
+  uint16_t readRawValue() override {
+    return analogRead(getPin()); /* ADC value is between 0-4095 */
+  }
+
+   /* we need to map it to 0-100 */
+  uint8_t getScaledResistance() {
     uint16_t adc = analogRead(getPin());
     if( maxValue >= 100)  maxValue = 100;
     return map(adc, 0, 4095, 0, maxValue);
@@ -50,12 +59,36 @@ private:
 public:
   TemperatureHumiditySensor(uint8_t pin) : Sensor(pin), dth11Sensor(pin) {}
 
-  uint16_t readValue() override {
+  /* read temperate value by default */
+  uint16_t readRawValue() override {
     return dth11Sensor::dthReadTemp();
   }
 
+  /* read humidity value */
   uint16_t readValueHumidity() {
     return dth11Sensor::dhtReadHum();
+  }
+};
+
+class LdrSensor : public Sensor {
+private:
+
+public:
+enum LRD_STATE_T {
+  LDR_STATE_LIGHT,
+  LDR_STATE_DARK
+  };
+
+  LdrSensor(uint8_t pin) : Sensor(pin) {}
+  
+  /* ldr module has digital outputs */
+  uint16_t readRawValue() override {
+    return digitalRead(getPin()); 
+  }
+
+  /* Get the state of the LDR sensor */
+  LRD_STATE_T getLdrState() {
+    return (LRD_STATE_T)readRawValue();
   }
 };
 
@@ -67,11 +100,24 @@ public:
     this->out_pin = out_pin;
     pinMode(out_pin, OUTPUT);
   }
+  
+  /* Set PWM duty cycle from 0% to 100% */
+  void SetPwmDutyCycle(uint8_t intensity) {
+    if( intensity >= 0 && intensity <= 100) {
+      uint8_t pwm_val = map(intensity, 0, 100, 0, 255); /* Map the 0-100% value to 0-255 for PWM */
+      analogWrite(out_pin, pwm_val);
+    } 
+  }
 
-  void SetLedIntensity(uint8_t intensity) {
-    uint8_t pwm_val = map(intensity, 0, 100, 0, 255);
-    analogWrite(out_pin, pwm_val);
-    delay(5);
+  void SetOutState(uint8_t state) {
+    if(state == 0) {
+      digitalWrite(getPin(), LOW);
+    } else if (state == 1) {
+      digitalWrite(getPin(), HIGH);
+    } else {
+      digitalWrite(getPin(), LOW);
+    }
+    
   }
 
   uint8_t getPin() const {
@@ -81,58 +127,90 @@ public:
 
 /* Struct to store all sensor, actuator, and display-related data */
 struct SystemData {
+  /* Objects */
   VarResSensor* potSensor;
   TemperatureHumiditySensor* tempHumSensor;
   Actuator* led;
   OledDisplay* oledDisplay;
-  uint16_t potValue;
+  LdrSensor* lightSensor;
+  Actuator* relay1;
+  /*variables */
+  uint8_t potScaledValue;
   uint16_t temperature;
   uint16_t humidity;
+  uint8_t ldrState;
 };
 
 void TaskReadSensors(void *pvParameters) {
   SystemData* data = (SystemData*) pvParameters;
-  
-  unsigned long lastPotRead = 0;
-  unsigned long lastTempHumRead = 0;
+  unsigned long lastReadSensor_100ms = 0;
+  unsigned long lastReadSensor_5000ms = 0;
 
   for (;;) {
-      unsigned long currentMillis = millis();
+    unsigned long currentMillis = millis();
 
-      /* Read potentiometer every 1 sec */
-      if (currentMillis - lastPotRead >= POT_INTERVAL_100_MS) {
-          lastPotRead = currentMillis;
-          data->potValue = data->potSensor->readValue();
-      }
+    /* Sensor to be read evey 100 ms */
+    if (currentMillis - lastReadSensor_100ms >= SENSOR_R_SUBTASK_INTERVAL_100_MS) {
+        lastReadSensor_100ms = currentMillis;
+        data->potScaledValue = data->potSensor->getScaledResistance();
+        data->ldrState = data->lightSensor->getLdrState();
+    }
 
-      /* Read temperature & humidity every 5 sec */
-      if (currentMillis - lastTempHumRead >= TEMP_HUM_INTERVAL_5000_MS) {
-          lastTempHumRead = currentMillis;
-          data->temperature = data->tempHumSensor->readValue();
-          data->humidity = data->tempHumSensor->readValueHumidity();
-      }
+    /* Sensor to be read evey 5000 ms */
+    if (currentMillis - lastReadSensor_5000ms >= SENSOR_R_SUBTASK_INTERVAL_5000_MS) {
+        lastReadSensor_5000ms = currentMillis;
+        data->temperature = data->tempHumSensor->readRawValue();
+        data->humidity = data->tempHumSensor->readValueHumidity();
+    }
 
-      /** Prevent CPU overloading */
-      vTaskDelay(pdMS_TO_TICKS(100));
+    /* Prevent CPU overloading */
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
 /* Task: Process sensor data */
 void TaskProcessData(void* pvParameters) {
-  SystemData* data = (SystemData*) pvParameters;
+  SystemData* data = (SystemData*)pvParameters;
+
+  // Variables to store processed data
+  uint8_t processedPotValue = 0;
+  uint16_t processedTemperature = 0;
+  uint16_t processedHumidity = 0;
+
   for (;;) {
-      // Delay to allow periodic processing
-      vTaskDelay(pdMS_TO_TICKS(100)); 
+    /* Scale potentiometer value for LED intensity */
+    processedPotValue = data->potSensor->getScaledResistance();
+
+    /* Apply a threshold to temperature */ 
+    processedTemperature = data->tempHumSensor->readRawValue();
+    if (processedTemperature > 50) {
+      processedTemperature = 50; // Cap temperature at 50°C
+    }
+
+    /* Smooth humidity values (simple moving average) */ 
+    static uint16_t previousHumidity = 0;
+    processedHumidity = (data->tempHumSensor->readValueHumidity() + previousHumidity) / 2;
+    previousHumidity = processedHumidity;
+
+    /* Update SystemData with processed values */
+    data->potScaledValue = processedPotValue;
+    data->temperature = processedTemperature;
+    data->humidity = processedHumidity;
+
+    vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
   }
 }
 
-/* Task: Control actuators (adjust LED intensity) */
+/* Task: Control actuators */
 void TaskControlActuators(void* pvParameters) {
-  SystemData* data = (SystemData*) pvParameters;
+  SystemData* data = (SystemData*)pvParameters;
 
   for (;;) {
-      data->led->SetLedIntensity(data->potValue);
-      vTaskDelay(pdMS_TO_TICKS(100));  /* Update actuators every 100ms */
+    // Use processed data for actuators
+    data->led->SetPwmDutyCycle(data->potScaledValue);
+    data->relay1->SetOutState(data->lightSensor->getLdrState());
+
+    vTaskDelay(pdMS_TO_TICKS(100)); // Update actuators every 100ms
   }
 }
 
@@ -140,36 +218,35 @@ void TaskControlActuators(void* pvParameters) {
 void TaskDisplay(void* pvParameters) {
   SystemData* data = (SystemData*) pvParameters;
 
-  uint16_t prevPotValue = 0;
+  uint8_t prevpotScaledValue = 0;
   uint16_t prevTemperature = 0;
   uint16_t prevHumidity = 0;
 
   for (;;) {
       // Check if any value has changed
-      if (data->potValue != prevPotValue || data->temperature != prevTemperature ||  data->humidity != prevHumidity) {
+      if (data->potScaledValue != prevpotScaledValue || data->temperature != prevTemperature ||  data->humidity != prevHumidity) {
+        if (data->potScaledValue != prevpotScaledValue) {
+            data->oledDisplay->SetdisplayData(0, 0, "Led Int: ");
+            data->oledDisplay->SetdisplayData(75, 0, (uint16_t)data->potScaledValue);
+            data->oledDisplay->SetdisplayData(100, 0, "%");
+            prevpotScaledValue = data->potScaledValue;  // Update previous value
+        }
 
-          if (data->potValue != prevPotValue) {
-              data->oledDisplay->SetdisplayData(0, 0, "Led Int: ");
-              data->oledDisplay->SetdisplayData(75, 0, data->potValue);
-              data->oledDisplay->SetdisplayData(100, 0, "%");
-              prevPotValue = data->potValue;  // Update previous value
-          }
+        if (data->temperature != prevTemperature) {
+            data->oledDisplay->SetdisplayData(0, 10, "Temperature: ");
+            data->oledDisplay->SetdisplayData(75, 10, data->temperature);
+            data->oledDisplay->SetdisplayData(100, 10, "C");
+            prevTemperature = data->temperature;  // Update previous value
+        }
 
-          if (data->temperature != prevTemperature) {
-              data->oledDisplay->SetdisplayData(0, 10, "Temperature: ");
-              data->oledDisplay->SetdisplayData(75, 10, data->temperature);
-              data->oledDisplay->SetdisplayData(100, 10, "C");
-              prevTemperature = data->temperature;  // Update previous value
-          }
+        if (data->humidity != prevHumidity) {
+            data->oledDisplay->SetdisplayData(0, 20, "Humidity: ");
+            data->oledDisplay->SetdisplayData(75, 20, data->humidity);
+            data->oledDisplay->SetdisplayData(100, 20, "%");
+            prevHumidity = data->humidity;  // Update previous value
+        }
 
-          if (data->humidity != prevHumidity) {
-              data->oledDisplay->SetdisplayData(0, 20, "Humidity: ");
-              data->oledDisplay->SetdisplayData(75, 20, data->humidity);
-              data->oledDisplay->SetdisplayData(100, 20, "%");
-              prevHumidity = data->humidity;  // Update previous value
-          }
-
-          data->oledDisplay->PrintdisplayData();
+        data->oledDisplay->PrintdisplayData();
       }
 
       vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS));  /* Refresh display every 300ms */
@@ -181,11 +258,13 @@ void setup() {
 
   /* Allocate memory for struct dynamically */
   SystemData* systemData = new SystemData {
-      new VarResSensor(LIGHT_SENS_PIN, 100),
-      new TemperatureHumiditySensor(TEMP_HUM_SENS_PIN),
-      new Actuator(LED12_PWM_PIN),
+      new VarResSensor(SENSOR_POT_PIN, 100),
+      new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
+      new Actuator(ACTUATOR_LED_PWM_PIN),
       new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-      0, 0, 0  /* Initialize sensor values */
+      new LdrSensor(SENSOR_LDR_PIN),
+      new Actuator(ACTUATOR_RELAY1_PIN),
+      0, 0, 0, 0  /* Initialize sensor values */
   };
 
   systemData->oledDisplay->init();

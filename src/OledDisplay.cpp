@@ -24,7 +24,7 @@ void OledDisplay::setTextProperties(uint8_t textsize, uint8_t color) {
 
 void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, const char* data) {
     /* Clear the section where the text will be updated */ 
-    display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK); // 8 is the height of one text line
+    display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);
     display.setCursor(posX, posY);
     display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); 
     display.print(data);
@@ -32,7 +32,7 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, const char* data) {
 
 void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, uint16_t data) {
     /* Clear the section where the text will be updated */ 
-    display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK); // 8 is the height of one text line
+    display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK); 
     display.setCursor(posX, posY);
     display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); 
     display.print(data);
