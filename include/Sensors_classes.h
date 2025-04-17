@@ -13,29 +13,36 @@ public:
     uint8_t getPin() const;
 };
 
-class VarResSensor : public Sensor {
+class AnalogSensor : public Sensor {
 private:
-    uint8_t maxValue;
+    uint16_t AdcValue; 
 public:
-    VarResSensor(uint8_t pin, uint8_t maxValue);
+    AnalogSensor(uint8_t pin);
     uint16_t readRawValue() override;
     double getVoltage();
+    uint16_t getSensorValue() const;
 };
 
 class TemperatureHumiditySensor : public Sensor, public dth11Sensor {
+private:
+    double temperature; 
+    double humidity;    
 public:
     TemperatureHumiditySensor(uint8_t pin);
     uint16_t readRawValue() override;
     double readValueTemperature();
     double readValueHumidity();
+    double getTemperature() const;
+    double getHumidity() const;
 };
 
-class LdrSensor : public Sensor {
+class DigitalSensor : public Sensor {
+private:
+    uint8_t SensorState;
 public:
-    enum LRD_STATE_T { LDR_STATE_LIGHT, LDR_STATE_DARK };
-    LdrSensor(uint8_t pin);
+    DigitalSensor(uint8_t pin);
     uint16_t readRawValue() override;
-    LRD_STATE_T getLdrState();
+    uint8_t getSensorValue() const;
 };
 
 #endif

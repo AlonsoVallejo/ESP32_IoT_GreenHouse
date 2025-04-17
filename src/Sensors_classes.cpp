@@ -1,7 +1,7 @@
 #include "Sensors_classes.h"
 
 /**
- * @brief Constructor initializes the sensor pin.
+ * @brief Initializes the sensor pin as an input.
  * @param pin Pin number where the sensor is connected.
  */
 Sensor::Sensor(uint8_t pin) : pin(pin) {
@@ -9,7 +9,7 @@ Sensor::Sensor(uint8_t pin) : pin(pin) {
 }
 
 /**
- * @brief Get the pin number where the sensor is connected.
+ * @brief Retrieves the pin number of the sensor.
  * @return The pin number.
  */
 uint8_t Sensor::getPin() const {
@@ -17,78 +17,104 @@ uint8_t Sensor::getPin() const {
 }
 
 /**
- * @brief Constructor initializes the variable resistance sensor.
+ * @brief Initializes an analog sensor.
  * @param pin The input pin connected to the sensor.
- * @param maxValue The maximum mapped value (default should not exceed 100).
  */
-VarResSensor::VarResSensor(uint8_t pin, uint8_t maxValue) : Sensor(pin), maxValue(maxValue) {}
+AnalogSensor::AnalogSensor(uint8_t pin) : Sensor(pin), AdcValue(0) {}
 
 /**
- * @brief Read the raw ADC value from the sensor.
+ * @brief Reads the raw ADC value from the sensor.
  * @return ADC value between 0-4095.
  */
-uint16_t VarResSensor::readRawValue() {
-    return analogRead(getPin());
+uint16_t AnalogSensor::readRawValue() {
+    AdcValue = analogRead(getPin());
+    return AdcValue;
 }
 
 /**
- * @brief . Get the voltage value from the ADC reading.
- * @return Voltage value based on ADC reading.
+ * @brief Converts the ADC reading to voltage.
+ * @return Corresponding voltage value.
  */
-double VarResSensor::getVoltage() {
-  uint16_t adc = analogRead(getPin());
-  return (adc * 3.3) / 4095.0; // Assuming a 3.3V reference voltage
+double AnalogSensor::getVoltage() {
+    return (AdcValue * 3.3) / 4095.0;
 }
 
 /**
- * @brief Constructor initializes the temperature and humidity sensor.
+ * @brief Gets the last recorded sensor value.
+ * @return Potentiometer value.
+ */
+uint16_t AnalogSensor::getSensorValue() const {
+    return AdcValue;
+}
+
+/**
+ * @brief Initializes a temperature and humidity sensor.
  * @param pin The input pin connected to the sensor.
  */
-TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) : Sensor(pin), dth11Sensor(pin) {}
+TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) 
+    : Sensor(pin), dth11Sensor(pin), temperature(0), humidity(0) {}
 
 /**
- * @brief Read the temperature value.
- * @return Temperature in degrees Celsius.
+ * @brief Reads the sensor but returns a default value (base class compliance).
+ * @return Placeholder value.
  */
 uint16_t TemperatureHumiditySensor::readRawValue() {
-    return 0xFFFF; /* To complain base class */
+    return 0xFFFF;
 }
 
 /**
- * @brief Read the humidity value.
+ * @brief Reads the humidity measurement from the sensor.
  * @return Humidity percentage.
  */
 double TemperatureHumiditySensor::readValueHumidity() {
-    return dth11Sensor::dhtReadHum();
+    humidity = dth11Sensor::dhtReadHum();
+    return humidity;
 }
 
 /**
- * @brief Read the temperature value.
+ * @brief Reads the temperature measurement from the sensor.
  * @return Temperature in degrees Celsius.
  */
 double TemperatureHumiditySensor::readValueTemperature() {
-  return dth11Sensor::dthReadTemp();
+    temperature = dth11Sensor::dthReadTemp();
+    return temperature;
 }
 
+/**
+ * @brief Retrieves the last recorded temperature value.
+ * @return Temperature in degrees Celsius.
+ */
+double TemperatureHumiditySensor::getTemperature() const {
+    return temperature;
+}
 
 /**
- * @brief Constructor initializes the LDR sensor.
+ * @brief Retrieves the last recorded humidity value.
+ * @return Humidity percentage.
+ */
+double TemperatureHumiditySensor::getHumidity() const {
+    return humidity;
+}
+
+/**
+ * @brief Initializes a digital sensor.
  * @param pin The input pin connected to the sensor.
  */
-LdrSensor::LdrSensor(uint8_t pin) : Sensor(pin) {}
+DigitalSensor::DigitalSensor(uint8_t pin) : Sensor(pin), SensorState(0) {}
 
 /**
- * @brief Read raw LDR sensor state (digital output).
+ * @brief Reads the digital state of the sensor.
  * @return Digital value (HIGH or LOW).
  */
-uint16_t LdrSensor::readRawValue() {
-    return digitalRead(getPin());
+uint16_t DigitalSensor::readRawValue() {
+    SensorState = digitalRead(getPin());
+    return SensorState;
 }
 
 /**
- * @brief Get the LDR sensor state.
- * @return LDR_STATE_LIGHT or LDR_STATE_DARK based on reading.
+ * @brief Retrieves the last recorded digital state.
+ * @return LDR state (HIGH or LOW).
  */
-LdrSensor::LRD_STATE_T LdrSensor::getLdrState() {
-    return (LRD_STATE_T)readRawValue();
+uint8_t DigitalSensor::getSensorValue() const {
+    return SensorState;
 }
