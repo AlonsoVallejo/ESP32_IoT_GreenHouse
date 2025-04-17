@@ -7,10 +7,10 @@ void dth11Sensor::dhtSensorInit() {
     TempHumSens.begin();
 }
 
-uint8_t dth11Sensor::dthReadTemp(){
-    return (uint8_t)TempHumSens.readTemperature();
+double dth11Sensor::dthReadTemp(){
+    return (double)TempHumSens.readTemperature();
 }
 
-uint8_t dth11Sensor::dhtReadHum(){
-    return (uint8_t)TempHumSens.readHumidity();
+double dth11Sensor::dhtReadHum(){
+    return (double)TempHumSens.readHumidity();
 }

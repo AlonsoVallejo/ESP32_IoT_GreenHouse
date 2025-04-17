@@ -13,9 +13,9 @@ Actuator::Actuator(uint8_t out_pin) : out_pin(out_pin) {
  *        Maps the percentage value (0-100%) to PWM range (0-255).
  * @param intensity Percentage value for duty cycle (0 to 100).
  */
-void Actuator::SetPwmDutyCycle(uint8_t intensity) {
-    if (intensity >= 0 && intensity <= 100) {
-        uint8_t pwm_val = map(intensity, 0, 100, 0, 255);
+void Actuator::SetPwmDutyCycle(uint8_t dutycycle) {
+    if (dutycycle >= 0 && dutycycle <= 100) {
+        uint8_t pwm_val = map(dutycycle, 0, 100, 0, 255);
         analogWrite(out_pin, pwm_val);
     }
 }

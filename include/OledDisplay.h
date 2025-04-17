@@ -21,6 +21,7 @@ public:
     void setTextProperties(uint8_t textsize, uint8_t color);
     void SetdisplayData(int16_t posX, int16_t posY, const char* data);
     void SetdisplayData(int16_t posX, int16_t posY, uint16_t data);
+    void SetdisplayData(int16_t posX, int16_t posY, double data);
     void PrintdisplayData();
 };
 

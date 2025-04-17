@@ -19,14 +19,15 @@ private:
 public:
     VarResSensor(uint8_t pin, uint8_t maxValue);
     uint16_t readRawValue() override;
-    uint8_t getScaledResistance();
+    double getVoltage();
 };
 
 class TemperatureHumiditySensor : public Sensor, public dth11Sensor {
 public:
     TemperatureHumiditySensor(uint8_t pin);
     uint16_t readRawValue() override;
-    uint16_t readValueHumidity();
+    double readValueTemperature();
+    double readValueHumidity();
 };
 
 class LdrSensor : public Sensor {

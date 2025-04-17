@@ -32,13 +32,12 @@ uint16_t VarResSensor::readRawValue() {
 }
 
 /**
- * @brief Scale the ADC value to a percentage (0-100%).
- * @return Scaled value based on ADC reading.
+ * @brief . Get the voltage value from the ADC reading.
+ * @return Voltage value based on ADC reading.
  */
-uint8_t VarResSensor::getScaledResistance() {
-    uint16_t adc = analogRead(getPin());
-    if (maxValue > 100) maxValue = 100;
-    return map(adc, 0, 4095, 0, maxValue);
+double VarResSensor::getVoltage() {
+  uint16_t adc = analogRead(getPin());
+  return (adc * 3.3) / 4095.0; // Assuming a 3.3V reference voltage
 }
 
 /**
@@ -52,16 +51,25 @@ TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) : Sensor(pin),
  * @return Temperature in degrees Celsius.
  */
 uint16_t TemperatureHumiditySensor::readRawValue() {
-    return dth11Sensor::dthReadTemp();
+    return 0xFFFF; /* To complain base class */
 }
 
 /**
  * @brief Read the humidity value.
  * @return Humidity percentage.
  */
-uint16_t TemperatureHumiditySensor::readValueHumidity() {
+double TemperatureHumiditySensor::readValueHumidity() {
     return dth11Sensor::dhtReadHum();
 }
+
+/**
+ * @brief Read the temperature value.
+ * @return Temperature in degrees Celsius.
+ */
+double TemperatureHumiditySensor::readValueTemperature() {
+  return dth11Sensor::dthReadTemp();
+}
+
 
 /**
  * @brief Constructor initializes the LDR sensor.

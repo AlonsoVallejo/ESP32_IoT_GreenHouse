@@ -10,8 +10,8 @@ public:
     dth11Sensor(uint8_t pin);
 
     void dhtSensorInit();
-    uint8_t dthReadTemp();
-    uint8_t dhtReadHum();
+    double dthReadTemp();
+    double dhtReadHum();
 };
 
 #endif
