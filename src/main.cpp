@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include "OledDisplay.h"
-#include "dht11_sens.h"
 #include "ESP32_shield.h"
+#include "Sensors_classes.h"
+#include "Actuators_classes.h"
 
 using namespace std;
 
@@ -16,114 +17,6 @@ using namespace std;
 #define SENSOR_R_SUBTASK_INTERVAL_5000_MS (5000)  
 
 #define DISPLAY_INTERVAL_300_MS   (300)   
-
-class Sensor {
-private:
-  uint8_t pin;
-public:
-  Sensor(uint8_t pin) : pin(pin) {
-    pinMode(pin, INPUT);
-  }
-
-  /* Pure virtual function to be implemented by derived classes */
-  virtual uint16_t readRawValue() = 0;
-
-  /* Read value from the sensor */
-  uint8_t getPin() const {
-    return pin;
-  }
-
-};
-
-class VarResSensor : public Sensor{
-private: 
-  uint8_t maxValue;
-public:
-VarResSensor(uint8_t pin, uint8_t maxValue) : Sensor(pin), maxValue(maxValue) {}
-
-  uint16_t readRawValue() override {
-    return analogRead(getPin()); /* ADC value is between 0-4095 */
-  }
-
-   /* we need to map it to 0-100 */
-  uint8_t getScaledResistance() {
-    uint16_t adc = analogRead(getPin());
-    if( maxValue >= 100)  maxValue = 100;
-    return map(adc, 0, 4095, 0, maxValue);
-  }
-};
-
-class TemperatureHumiditySensor : public Sensor , public dth11Sensor {
-private:
-  uint8_t pin;
-public:
-  TemperatureHumiditySensor(uint8_t pin) : Sensor(pin), dth11Sensor(pin) {}
-
-  /* read temperate value by default */
-  uint16_t readRawValue() override {
-    return dth11Sensor::dthReadTemp();
-  }
-
-  /* read humidity value */
-  uint16_t readValueHumidity() {
-    return dth11Sensor::dhtReadHum();
-  }
-};
-
-class LdrSensor : public Sensor {
-private:
-
-public:
-enum LRD_STATE_T {
-  LDR_STATE_LIGHT,
-  LDR_STATE_DARK
-  };
-
-  LdrSensor(uint8_t pin) : Sensor(pin) {}
-  
-  /* ldr module has digital outputs */
-  uint16_t readRawValue() override {
-    return digitalRead(getPin()); 
-  }
-
-  /* Get the state of the LDR sensor */
-  LRD_STATE_T getLdrState() {
-    return (LRD_STATE_T)readRawValue();
-  }
-};
-
-class Actuator {
-private: 
-  uint8_t out_pin;
-public:
-  Actuator(uint8_t out_pin) {
-    this->out_pin = out_pin;
-    pinMode(out_pin, OUTPUT);
-  }
-  
-  /* Set PWM duty cycle from 0% to 100% */
-  void SetPwmDutyCycle(uint8_t intensity) {
-    if( intensity >= 0 && intensity <= 100) {
-      uint8_t pwm_val = map(intensity, 0, 100, 0, 255); /* Map the 0-100% value to 0-255 for PWM */
-      analogWrite(out_pin, pwm_val);
-    } 
-  }
-
-  void SetOutState(uint8_t state) {
-    if(state == 0) {
-      digitalWrite(getPin(), LOW);
-    } else if (state == 1) {
-      digitalWrite(getPin(), HIGH);
-    } else {
-      digitalWrite(getPin(), LOW);
-    }
-    
-  }
-
-  uint8_t getPin() const {
-    return out_pin;
-  }
-};
 
 /* Struct to store all sensor, actuator, and display-related data */
 struct SystemData {
