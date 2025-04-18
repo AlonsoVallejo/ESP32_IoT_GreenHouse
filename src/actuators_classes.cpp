@@ -36,10 +36,11 @@ uint8_t Actuator::getOutstate() const {
 }
 
 /**
- * @brief Change the actuator state by modifying the GPIO pin output.
+ * @brief Set the actuator state and update the GPIO output.
  * @param state The state to set (0 or 1).
  */
 void Actuator::setActuatorState(uint8_t state) {
+    ActuatorState = state; // Updates the internal state
     digitalWrite(out_pin, state ? HIGH : LOW); // Updates GPIO output
 }
 

@@ -113,7 +113,7 @@ uint16_t DigitalSensor::readRawValue() {
 
 /**
  * @brief Retrieves the last recorded digital state.
- * @return LDR state (HIGH or LOW).
+ * @return Digital state (HIGH or LOW).
  */
 uint8_t DigitalSensor::getSensorValue() const {
     return SensorState;

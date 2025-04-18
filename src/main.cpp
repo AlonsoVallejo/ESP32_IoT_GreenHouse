@@ -9,6 +9,7 @@ using namespace std;
 #define SENSOR_POT_PIN        (SHIELD_POTENTIOMETER_VP)
 #define SENSOR_HUM_TEMP_PIN   (SHIELD_DAC1_D25)
 #define SENSOR_LDR_PIN        (SHIELD_PUSHB3_D34) 
+#define SENSOR_PIR_PIN        (SHIELD_DHT11_D13)
 #define ACTUATOR_LED_PWM_PIN  (SHIELD_LED4_D14)
 #define ACTUATOR_RELAY1_PIN   (SHIELD_RELAY1_D4)
 
@@ -30,6 +31,8 @@ using namespace std;
 #define LED_NO_FAIL_INDICATE     (0x00) 
 #define LED_FAIL_INDICATE        (0x01) 
 
+#define SENSOR_PIR_COOL_DOWN_TIME (5000) 
+
 /* Struct to store all sensor, actuator, and display-related data */
 struct SystemData {
   /* Objects */
@@ -39,6 +42,7 @@ struct SystemData {
   OledDisplay* oledDisplay;
   DigitalSensor* lightSensor;
   Actuator* relay1;
+  DigitalSensor* pirSensor;
 };
 
 void TaskReadSensors(void* pvParameters) {
@@ -50,7 +54,7 @@ void TaskReadSensors(void* pvParameters) {
         data->lightSensor->readRawValue();
         data->tempHumSensor->readValueTemperature();
         data->tempHumSensor->readValueHumidity();
-
+        data->pirSensor->readRawValue();
         vTaskDelay(pdMS_TO_TICKS(100)); // Read sensors every 100ms
     }
 }
@@ -66,6 +70,7 @@ void TaskProcessData(void* pvParameters) {
             data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
         }
 
+        
         vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
     }
 }
@@ -74,7 +79,9 @@ void TaskControlActuators(void* pvParameters) {
   SystemData* data = (SystemData*)pvParameters;
   unsigned long lastSetAct_500ms = 0;
   bool ledfailstate = false;
-  unsigned long currentMillis = 0;
+  unsigned long lastPirTriggerTime = 0;
+  bool presenceDetected = false;
+  bool pirWentLow = false;
 
   for (;;) {
     unsigned long currentMillis = millis();
@@ -91,8 +98,33 @@ void TaskControlActuators(void* pvParameters) {
       data->ledInd->setActuatorState(LOW);
     }
 
-    // Activate relay based on light sensor value state
-    data->relay1->setActuatorState(data->lightSensor->getSensorValue());
+    /* Handle relay1 activation logic */
+    bool lightState = data->lightSensor->getSensorValue();
+    bool pirState = data->pirSensor->getSensorValue();
+    bool relayState = data->relay1->getOutstate();
+
+    /*  If PIR detects presence, keep relay ON */
+    if (pirState) {
+        presenceDetected = true;
+        pirWentLow = false;  /* Reset cooldown tracking */ 
+        data->relay1->setActuatorState(HIGH);
+        lastPirTriggerTime = currentMillis;
+    }  else if (lightState && !relayState) { /* If it's dark AND relay is OFF, turn it ON*/
+        data->relay1->setActuatorState(HIGH);
+    } else if (!lightState && !presenceDetected) {  /* If light sensor detects LIGHT and no presence detected */ 
+        presenceDetected = false; 
+        pirWentLow = false;
+        data->relay1->setActuatorState(LOW);
+    } else if (!pirState && presenceDetected && !pirWentLow) { /* If PIR has stopped detecting presence, start cooldown */
+        pirWentLow = true;  /* Mark the time when PIR first went low */ 
+        lastPirTriggerTime = currentMillis;
+    }  else if (pirWentLow && (currentMillis - lastPirTriggerTime >= SENSOR_PIR_COOL_DOWN_TIME)) { /*  If PIR has been LOW for 4 seconds, turn relay OFF */
+        presenceDetected = false; 
+        pirWentLow = false;
+        data->relay1->setActuatorState(LOW);
+    } else {
+        
+    }
 
     vTaskDelay(pdMS_TO_TICKS(100)); // Update actuators every 100ms
   }
@@ -154,7 +186,8 @@ void setup() {
       new Actuator(ACTUATOR_LED_PWM_PIN),
       new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
       new DigitalSensor(SENSOR_LDR_PIN),
-      new Actuator(ACTUATOR_RELAY1_PIN)
+      new Actuator(ACTUATOR_RELAY1_PIN),
+      new DigitalSensor(SENSOR_PIR_PIN)
   };
 
   systemData->oledDisplay->init();
