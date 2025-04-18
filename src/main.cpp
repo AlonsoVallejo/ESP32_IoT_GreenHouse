@@ -10,6 +10,7 @@ using namespace std;
 #define SENSOR_HUM_TEMP_PIN   (SHIELD_DAC1_D25)
 #define SENSOR_LDR_PIN        (SHIELD_PUSHB3_D34) 
 #define SENSOR_PIR_PIN        (SHIELD_DHT11_D13)
+#define SENSOR_PBSELECTOR_PIN (SHIELD_PUSHB2_D35)
 #define ACTUATOR_LED_PWM_PIN  (SHIELD_LED4_D14)
 #define ACTUATOR_RELAY1_PIN   (SHIELD_RELAY1_D4)
 #define ACTUATOR_RELAY2_PIN   (SHIELD_RELAY2_D2)
@@ -17,13 +18,16 @@ using namespace std;
 /* Defined times for each task in ms */
 #define SUBTASK_INTERVAL_100_MS  (100)
 #define SUBTASK_INTERVAL_500_MS  (500)   
-#define SUBTASK_INTERVAL_5000_MS (5000)  
+#define SUBTASK_INTERVAL_3000_MS (3000)  
 
 #define DISPLAY_INTERVAL_300_MS   (300)   
 
 #define SENSOR_LVL_OPENCKT_V (3975) // ADC value for open circuit
 #define SENSOR_LVL_STG_V     (124) // ADC value for short circuit
 #define SENSOR_LVL_THRESHOLD_V (50) // Threshold for level sensor
+
+#define MAX_LVL_PERCENTAGE (90) 
+#define MIN_LVL_PERCENTAGE (20) 
 
 #define SENSOR_MAX_TEMP_C (50)
 
@@ -35,33 +39,64 @@ using namespace std;
 
 #define SENSOR_PIR_COOL_DOWN_TIME (5000) 
 
+enum pb1Selector{
+  PB1_SELECT_DATA1, /* Display light, Pir and relay1 data */
+  PB1_SELECT_DATA2, /* Display level and relay2 data */
+  PB1_SELECT_DATA3, /* Display temperature and humidity data */
+};
+
 /* Struct to store all sensor, actuator, and display-related data */
 struct SystemData {
-  /* Objects */
+   /* Object Sensors */
   AnalogSensor* levelSensor;
   TemperatureHumiditySensor* tempHumSensor;
-  Actuator* ledInd;
-  OledDisplay* oledDisplay;
-  DigitalSensor* lightSensor;
-  Actuator* relay1;
   DigitalSensor* pirSensor;
+  DigitalSensor* lightSensor;
+  DigitalSensor* buttonSelector;
+  /* Object Actuators */
+  Actuator* ledInd;
+  Actuator* relay1;
   Actuator* relay2;
+  /* Object display */
+  OledDisplay* oledDisplay;
   /* Variables */
   bool PirPresenceDetected;
+  pb1Selector currentSelector;
 };
 
 void TaskReadSensors(void* pvParameters) {
-    SystemData* data = (SystemData*)pvParameters;
+  SystemData* data = (SystemData*)pvParameters;
+  unsigned long lastTempHumReadTime = 0; /** Tracks last temp/humidity read time */
+  unsigned long lastButtonPressTime = 0;
 
-    for (;;) {
-        /* upadte sensor input values */
-        data->levelSensor->readRawValue();
-        data->lightSensor->readRawValue();
-        data->tempHumSensor->readValueTemperature();
-        data->tempHumSensor->readValueHumidity();
-        data->pirSensor->readRawValue();
-        vTaskDelay(pdMS_TO_TICKS(100)); // Read sensors every 100ms
-    }
+  for (;;) {
+      unsigned long currentMillis = millis(); /** Get current time */
+
+      /* Update level, light, and PIR sensor values every 100ms */
+      data->levelSensor->readRawValue();
+      data->lightSensor->readRawValue();
+      data->pirSensor->readRawValue();
+      data->buttonSelector->readRawValue();
+
+      /* push button selector input is inverted */
+      bool buttonState = !(data->buttonSelector->getSensorValue());
+ 
+      /* Check for button press with debounce */ 
+      if (buttonState && (currentMillis - lastButtonPressTime > 300)) { /* 300ms debounce */ 
+          lastButtonPressTime = currentMillis;
+
+          data->currentSelector = static_cast<pb1Selector>((data->currentSelector + 1) % 3);
+      }
+
+      /* Read temperature and humidity every 3 seconds */
+      if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_3000_MS) {
+          lastTempHumReadTime = currentMillis;
+          data->tempHumSensor->readValueTemperature();
+          data->tempHumSensor->readValueHumidity();
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(100)); /** Maintain 100ms loop timing */
+  }
 }
 
 void TaskProcessData(void* pvParameters) {
@@ -111,10 +146,10 @@ void TaskProcessData(void* pvParameters) {
 
       /* Handle relay2 activation logic */
       uint16_t levelValue = data->levelSensor->getSensorValue();
-      /** Calculate level percentage */
       uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) / 
                                 ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
       static bool relay2State = false;
+
       /** Check if the level sensor value is in an invalid range */
       if (levelValue >= SENSOR_LVL_OPENCKT_V || levelValue <= SENSOR_LVL_STG_V) {
         /** Sensor failure detected—turn relay OFF to prevent misactivation */
@@ -123,12 +158,10 @@ void TaskProcessData(void* pvParameters) {
       } else {
         data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
         
-        /** If levelPercentage ≤ 18%, activate relay */
-        if (levelPercentage <= 18) {
+        if (levelPercentage <= MIN_LVL_PERCENTAGE) {
           relay2State = true;
         }  
-        /** If levelPercentage reaches 82%, deactivate relay */
-        else if (levelPercentage >= 82) {
+        else if (levelPercentage >= MAX_LVL_PERCENTAGE) {
           relay2State = false;
         }
       }
@@ -171,75 +204,58 @@ void TaskControlActuators(void* pvParameters) {
 
 /* Task: Update display with sensor data */
 void TaskDisplay(void* pvParameters) {
-  SystemData* data = (SystemData*) pvParameters;
-
-  double prevTemperature = 0;
-  double prevHumidity = 0;
-  uint16_t prevLvlVoltage = 0;
-  uint8_t prevLightSensor = 2;  /* To update value in first iteration */
-  uint8_t prevPresenceSensor = 2; /* To update value in first iteration */
+  SystemData* data = (SystemData*)pvParameters;
+  uint16_t levelValue = 0;
   uint16_t levelPercentage = 0;
 
   for (;;) {
-      uint16_t levelValue = data->levelSensor->getSensorValue();
-      if (levelValue != prevLvlVoltage) {
-        if (levelValue >= SENSOR_LVL_OPENCKT_V) {
-            // Display OPEN when the level value reaches or exceeds SENSOR_LVL_OPENCKT_V
-            data->oledDisplay->SetdisplayData(0, 0, "LevelSensor: OPEN");
-        } else if (levelValue <= SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V) {
-            // Display SHORT for values below the lower threshold
-            data->oledDisplay->SetdisplayData(0, 0, "LevelSensor: SHORT");
-        } else if (levelValue >= SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) {
-            // Ensure 100% is displayed just before OPEN
-            data->oledDisplay->SetdisplayData(0, 0, "LevelSensor: ");
-            data->oledDisplay->SetdisplayData(75, 0, "100%");
-            levelPercentage = 100;
-        }  else {
-          // Adjusted range for percentage calculation
-          levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) / 
-                            ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
-          data->oledDisplay->SetdisplayData(0, 0, "LevelSensor: ");
-          data->oledDisplay->SetdisplayData(75, 0, levelPercentage);
-          data->oledDisplay->SetdisplayData(105, 0, "%");
+      switch (data->currentSelector) {
+          case PB1_SELECT_DATA1:
+              data->oledDisplay->SetdisplayData(0, 0, "Light Sensor: ");
+              data->oledDisplay->SetdisplayData(80, 0, data->lightSensor->getSensorValue() ? "Dark" : "Light");
+              data->oledDisplay->SetdisplayData(0, 10, "Prencese: ");
+              data->oledDisplay->SetdisplayData(80, 10, data->PirPresenceDetected ? "YES" : "NO");
+              data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
+              data->oledDisplay->SetdisplayData(80, 20, data->relay1->getOutstate() ? "ON" : "OFF");
+          break;
+
+          case PB1_SELECT_DATA2:
+              data->oledDisplay->SetdisplayData(0, 0, "Water Level: ");
+              levelValue = data->levelSensor->getSensorValue();
+              if (levelValue >= SENSOR_LVL_OPENCKT_V) {
+                  data->oledDisplay->SetdisplayData(80, 0, "OPEN");
+              } else if (levelValue <= SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V) {
+                  data->oledDisplay->SetdisplayData(80, 0, "SHORT");
+              } else if (levelValue >= SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) {
+                // Ensure 100% is displayed just before OPEN
+                data->oledDisplay->SetdisplayData(80, 0, "100%");
+              } else {
+                    levelPercentage = ((levelValue - SENSOR_LVL_STG_V) * 100) / (SENSOR_LVL_OPENCKT_V - SENSOR_LVL_STG_V);
+                    data->oledDisplay->SetdisplayData(80, 0, levelPercentage);
+                    data->oledDisplay->SetdisplayData(105,0, "%");
+                }
+                data->oledDisplay->SetdisplayData(0, 10, "Pump: ");
+                data->oledDisplay->SetdisplayData(80, 10, data->relay2->getOutstate() ? "ON" : "OFF");
+                data->oledDisplay->SetdisplayData(0, 20, " ");
+                data->oledDisplay->SetdisplayData(80, 20," ");
+          break;
+
+          case PB1_SELECT_DATA3:
+              data->oledDisplay->SetdisplayData(0, 0, "Temperature: ");
+              data->oledDisplay->SetdisplayData(80, 0, data->tempHumSensor->getTemperature());
+              data->oledDisplay->SetdisplayData(105,0, "C");
+              data->oledDisplay->SetdisplayData(0, 10, "Humidity: ");
+              data->oledDisplay->SetdisplayData(80, 10, data->tempHumSensor->getHumidity());
+              data->oledDisplay->SetdisplayData(105,10, "%");
+              data->oledDisplay->SetdisplayData(0, 20, " ");
+              data->oledDisplay->SetdisplayData(80, 20," ");
+          break;
       }
 
-          prevLvlVoltage = levelValue; 
-      }
-
-      double temperature = data->tempHumSensor->getTemperature();
-      if (data->tempHumSensor->getTemperature() != prevTemperature) {
-          data->oledDisplay->SetdisplayData(0, 10, "Temperature: ");
-          data->oledDisplay->SetdisplayData(75, 10, temperature);
-          data->oledDisplay->SetdisplayData(105, 10, "C");
-          prevTemperature = temperature;  
-      }
-
-      double HumidityValue = data->tempHumSensor->getHumidity();
-      if (data->tempHumSensor->getHumidity() != prevHumidity) {
-          data->oledDisplay->SetdisplayData(0, 20, "Humidity: ");
-          data->oledDisplay->SetdisplayData(75, 20, HumidityValue);
-          data->oledDisplay->SetdisplayData(105, 20, "%");
-          prevHumidity = HumidityValue;  
-      }
-
-      uint16_t LightSensor = data->lightSensor->getSensorValue();
-      if (prevLightSensor != LightSensor) {
-          data->oledDisplay->SetdisplayData(0, 30, "LightSensor: ");
-          data->oledDisplay->SetdisplayData(75, 30, LightSensor ? "Dark" : "Light");
-          prevLightSensor = LightSensor;  
-      }
-      
-      uint8_t PresenceSensor = data->PirPresenceDetected;
-      if (prevPresenceSensor != PresenceSensor) {
-          data->oledDisplay->SetdisplayData(0, 20, "Presence: ");
-          data->oledDisplay->SetdisplayData(75, 20, PresenceSensor ? "YES" : "NO");
-          prevPresenceSensor = PresenceSensor;  
-      }
-      
       data->oledDisplay->PrintdisplayData();
 
-      vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS));  /* Refresh display every 300ms */
-    }
+      vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS)); // Refresh display every 300ms
+  }
 }
 
 void setup() {
@@ -247,15 +263,21 @@ void setup() {
 
   /* Allocate memory for struct dynamically */
   SystemData* systemData = new SystemData {
+      /* Sensors */
       new AnalogSensor(SENSOR_LVL_PIN),
       new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
-      new Actuator(ACTUATOR_LED_PWM_PIN),
-      new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-      new DigitalSensor(SENSOR_LDR_PIN),
-      new Actuator(ACTUATOR_RELAY1_PIN),
       new DigitalSensor(SENSOR_PIR_PIN),
+      new DigitalSensor(SENSOR_LDR_PIN),
+      new DigitalSensor(SENSOR_PBSELECTOR_PIN),
+       /* Actuators */
+      new Actuator(ACTUATOR_LED_PWM_PIN),
+      new Actuator(ACTUATOR_RELAY1_PIN),
       new Actuator(ACTUATOR_RELAY2_PIN),
-      true
+      /* Display user data*/
+      new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
+       /* variables */
+      true,
+      PB1_SELECT_DATA1
   };
 
   systemData->oledDisplay->init();
