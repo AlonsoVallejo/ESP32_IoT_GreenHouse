@@ -80,7 +80,7 @@ void TaskControlActuators(void* pvParameters) {
     unsigned long currentMillis = millis();
 
     /* Toggling LED indicator in case of any failure */
-    if(data->ledInd->getActuatorState() == LED_FAIL_INDICATE) {
+    if(data->ledInd->getOutstate() == LED_FAIL_INDICATE) {
       if(currentMillis - lastSetAct_500ms >= SUBTASK_INTERVAL_500_MS) {
         /* togggle LED every 500ms in case of Pot failure */
         lastSetAct_500ms = currentMillis;
@@ -88,7 +88,7 @@ void TaskControlActuators(void* pvParameters) {
         data->ledInd->setActuatorState(ledfailstate);
       }
     } else {
-      data->ledInd->setActuatorState(HIGH);
+      data->ledInd->setActuatorState(LOW);
     }
 
     // Activate relay based on light sensor value state

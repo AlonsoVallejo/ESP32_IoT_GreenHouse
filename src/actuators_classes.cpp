@@ -28,19 +28,19 @@ void Actuator::SetOutState(uint8_t state) {
 }
 
 /**
+ * @brief Get the last stored state of the actuator.
+ * @return The internally stored actuator state (0 or 1).
+ */
+uint8_t Actuator::getOutstate() const {
+    return ActuatorState; // Retrieves the stored state
+}
+
+/**
  * @brief Change the actuator state by modifying the GPIO pin output.
  * @param state The state to set (0 or 1).
  */
 void Actuator::setActuatorState(uint8_t state) {
     digitalWrite(out_pin, state ? HIGH : LOW); // Updates GPIO output
-}
-
-/**
- * @brief Get the last stored state of the actuator.
- * @return The internally stored actuator state (0 or 1).
- */
-uint8_t Actuator::getActuatorState() const {
-    return ActuatorState; // Retrieves the stored state
 }
 
 /**
