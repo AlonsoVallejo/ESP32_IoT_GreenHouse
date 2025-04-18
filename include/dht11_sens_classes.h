@@ -1,5 +1,5 @@
-#ifndef DHT11_SENS_H  // Prevent multiple inclusions
-#define DHT11_SENS_H
+#ifndef DHT11_SENS_CLASSES_H  // Prevent multiple inclusions
+#define DHT11_SENS_CLASSES_H
 
 #include <DHT.h>
 

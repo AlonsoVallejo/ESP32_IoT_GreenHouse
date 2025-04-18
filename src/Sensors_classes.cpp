@@ -41,7 +41,7 @@ double AnalogSensor::getVoltage() {
 
 /**
  * @brief Gets the last recorded sensor value.
- * @return Potentiometer value.
+ * @return ADC value.
  */
 uint16_t AnalogSensor::getSensorValue() const {
     return AdcValue;

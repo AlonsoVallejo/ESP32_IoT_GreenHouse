@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <dht11_sens.h>
+#include <dht11_sens_classes.h>
 
 dth11Sensor::dth11Sensor(uint8_t pin) : TempHumSens(pin, DHT11) {}
 

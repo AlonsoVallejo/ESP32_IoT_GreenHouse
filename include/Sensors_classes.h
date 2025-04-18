@@ -1,8 +1,8 @@
-#ifndef SENSOR_H
-#define SENSOR_H
+#ifndef SENSOR__CLASSES_H
+#define SENSOR__CLASSES_H
 
 #include <Arduino.h>
-#include "dht11_sens.h"
+#include "dht11_sens_classes.h"
 
 class Sensor {
 protected:
@@ -42,7 +42,7 @@ private:
 public:
     DigitalSensor(uint8_t pin);
     uint16_t readRawValue() override;
-    uint8_t getSensorValue() const;
+    uint8_t getSensorValue() const; 
 };
 
 #endif
