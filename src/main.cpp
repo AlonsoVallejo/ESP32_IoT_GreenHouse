@@ -1,8 +1,8 @@
 #include <Arduino.h>
-#include "OledDisplay_classes.h"
-#include "ESP32_shield.h"
 #include "Sensors_classes.h"
 #include "Actuators_classes.h"
+#include "OledDisplay_classes.h"
+#include "ESP32_shield.h"
 
 using namespace std;
 
@@ -213,8 +213,10 @@ void TaskDisplay(void* pvParameters) {
           case PB1_SELECT_DATA1:
               data->oledDisplay->SetdisplayData(0, 0, "Light Sensor: ");
               data->oledDisplay->SetdisplayData(80, 0, data->lightSensor->getSensorValue() ? "Dark" : "Light");
+
               data->oledDisplay->SetdisplayData(0, 10, "Prencese: ");
               data->oledDisplay->SetdisplayData(80, 10, data->PirPresenceDetected ? "YES" : "NO");
+
               data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
               data->oledDisplay->SetdisplayData(80, 20, data->relay1->getOutstate() ? "ON" : "OFF");
           break;
@@ -231,24 +233,26 @@ void TaskDisplay(void* pvParameters) {
                 data->oledDisplay->SetdisplayData(80, 0, "100%");
               } else {
                     levelPercentage = ((levelValue - SENSOR_LVL_STG_V) * 100) / (SENSOR_LVL_OPENCKT_V - SENSOR_LVL_STG_V);
-                    data->oledDisplay->SetdisplayData(80, 0, levelPercentage);
-                    data->oledDisplay->SetdisplayData(105,0, "%");
+                    data->oledDisplay->SetdisplayData(80,  0, levelPercentage);
+                    data->oledDisplay->SetdisplayData(105, 0, "%");
                 }
-                data->oledDisplay->SetdisplayData(0, 10, "Pump: ");
+                data->oledDisplay->SetdisplayData(0,  10, "Pump: ");
                 data->oledDisplay->SetdisplayData(80, 10, data->relay2->getOutstate() ? "ON" : "OFF");
-                data->oledDisplay->SetdisplayData(0, 20, " ");
-                data->oledDisplay->SetdisplayData(80, 20," ");
+                data->oledDisplay->SetdisplayData(0,  20, " ");
+                data->oledDisplay->SetdisplayData(80, 20, " ");
           break;
 
           case PB1_SELECT_DATA3:
-              data->oledDisplay->SetdisplayData(0, 0, "Temperature: ");
-              data->oledDisplay->SetdisplayData(80, 0, data->tempHumSensor->getTemperature());
-              data->oledDisplay->SetdisplayData(105,0, "C");
-              data->oledDisplay->SetdisplayData(0, 10, "Humidity: ");
-              data->oledDisplay->SetdisplayData(80, 10, data->tempHumSensor->getHumidity());
-              data->oledDisplay->SetdisplayData(105,10, "%");
-              data->oledDisplay->SetdisplayData(0, 20, " ");
-              data->oledDisplay->SetdisplayData(80, 20," ");
+              data->oledDisplay->SetdisplayData(0,   0,  "Temperature: ");
+              data->oledDisplay->SetdisplayData(80,  0,  data->tempHumSensor->getTemperature());
+              data->oledDisplay->SetdisplayData(105, 0,  "C");
+
+              data->oledDisplay->SetdisplayData(0,   10, "Humidity: ");
+              data->oledDisplay->SetdisplayData(80,  10, data->tempHumSensor->getHumidity());
+              data->oledDisplay->SetdisplayData(105, 10, "%");
+
+              data->oledDisplay->SetdisplayData(0,   20, " ");
+              data->oledDisplay->SetdisplayData(80,  20, " ");
           break;
       }
 
