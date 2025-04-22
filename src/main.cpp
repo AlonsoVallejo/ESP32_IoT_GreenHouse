@@ -2,6 +2,7 @@
 #include "Sensors_classes.h"
 #include "Actuators_classes.h"
 #include "OledDisplay_classes.h"
+#include "client_classes.h"
 #include "ESP32_shield.h"
 
 using namespace std;
@@ -19,6 +20,7 @@ using namespace std;
 #define SUBTASK_INTERVAL_100_MS  (100)
 #define SUBTASK_INTERVAL_500_MS  (500)   
 #define SUBTASK_INTERVAL_3000_MS (3000)  
+#define SUBTASK_INTERVAL_5000_MS (5000)  
 
 #define DISPLAY_INTERVAL_300_MS   (300)   
 
@@ -39,13 +41,19 @@ using namespace std;
 
 #define SENSOR_PIR_COOL_DOWN_TIME (5000) 
 
+const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* IP of localhost */
+const char* ssid = "MEGACABLE-2.4G-FAA4";
+const char* password = "3kK4H6W48P";
+
 enum pb1Selector{
   PB1_SELECT_DATA1, /* Display light, Pir and relay1 data */
   PB1_SELECT_DATA2, /* Display level and relay2 data */
   PB1_SELECT_DATA3, /* Display temperature and humidity data */
+  PB1_SELECT_DATA4, /* Display wifi status */
 };
 
 /* Struct to store all sensor, actuator, and display-related data */
+/* Do not forget to update the setup() init */
 struct SystemData {
    /* Object Sensors */
   AnalogSensor* levelSensor;
@@ -59,9 +67,12 @@ struct SystemData {
   Actuator* relay2;
   /* Object display */
   OledDisplay* oledDisplay;
+  /* Object client */
+  ServerClient* client;
   /* Variables */
   bool PirPresenceDetected;
   pb1Selector currentSelector;
+  uint16_t levelPercentage;
 };
 
 void TaskReadSensors(void* pvParameters) {
@@ -85,7 +96,7 @@ void TaskReadSensors(void* pvParameters) {
       if (buttonState && (currentMillis - lastButtonPressTime > 300)) { /* 300ms debounce */ 
           lastButtonPressTime = currentMillis;
 
-          data->currentSelector = static_cast<pb1Selector>((data->currentSelector + 1) % 3);
+          data->currentSelector = static_cast<pb1Selector>((data->currentSelector + 1) % sizeof(pb1Selector)); 
       }
 
       /* Read temperature and humidity every 3 seconds */
@@ -149,7 +160,7 @@ void TaskProcessData(void* pvParameters) {
       uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) / 
                                 ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
       static bool relay2State = false;
-
+      
       /** Check if the level sensor value is in an invalid range */
       if (levelValue >= SENSOR_LVL_OPENCKT_V || levelValue <= SENSOR_LVL_STG_V) {
         /** Sensor failure detected—turn relay OFF to prevent misactivation */
@@ -165,6 +176,9 @@ void TaskProcessData(void* pvParameters) {
           relay2State = false;
         }
       }
+
+      data->levelPercentage = levelPercentage;
+
       /** Apply relay2 state */
       data->relay2->SetOutState(relay2State); 
 
@@ -232,8 +246,7 @@ void TaskDisplay(void* pvParameters) {
                 // Ensure 100% is displayed just before OPEN
                 data->oledDisplay->SetdisplayData(80, 0, "100%");
               } else {
-                    levelPercentage = ((levelValue - SENSOR_LVL_STG_V) * 100) / (SENSOR_LVL_OPENCKT_V - SENSOR_LVL_STG_V);
-                    data->oledDisplay->SetdisplayData(80,  0, levelPercentage);
+                    data->oledDisplay->SetdisplayData(80,  0, data->levelPercentage);
                     data->oledDisplay->SetdisplayData(105, 0, "%");
                 }
                 data->oledDisplay->SetdisplayData(0,  10, "Pump: ");
@@ -254,11 +267,48 @@ void TaskDisplay(void* pvParameters) {
               data->oledDisplay->SetdisplayData(0,   20, " ");
               data->oledDisplay->SetdisplayData(80,  20, " ");
           break;
+
+          case PB1_SELECT_DATA4:
+              data->oledDisplay->SetdisplayData(0,   0, "Wifi: ");
+              data->oledDisplay->SetdisplayData(0,   10, ssid);
+              data->oledDisplay->SetdisplayData(0,   20, "Status: ");
+              data->oledDisplay->SetdisplayData(45,   20, WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
+          break;
       }
 
       data->oledDisplay->PrintdisplayData();
 
       vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS)); // Refresh display every 300ms
+  }
+}
+
+void TaskSendDataToServer(void* pvParameters) {
+  SystemData* data = (SystemData*)pvParameters;
+  
+  /* Wait until wifi is connected */
+  data->client->connectWiFi();
+
+  for (;;) {
+      /* backend server.js needs to be running */
+      unsigned long currentMillis = millis();
+      static unsigned long lastSendTime = 0;
+
+      /* Send data to Firebase server */
+      if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_5000_MS) { 
+          lastSendTime = currentMillis;
+
+          data->client->prepareData("PirPresenceDetected", String(data->PirPresenceDetected));
+          data->client->prepareData("levelPercentage", String(data->levelPercentage));
+          data->client->prepareData("lightValue", String(data->lightSensor->getSensorValue()));
+          data->client->prepareData("temperatureValue", String(data->tempHumSensor->getTemperature()));
+          data->client->prepareData("humidityValue", String(data->tempHumSensor->getHumidity()));
+          data->client->prepareData("lamp", String(data->relay1->getOutstate()));
+          data->client->prepareData("pump", String(data->relay2->getOutstate()));
+
+          data->client->sendPayload(); // Send data
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(500)); // Keep task responsive
   }
 }
 
@@ -279,9 +329,12 @@ void setup() {
       new Actuator(ACTUATOR_RELAY2_PIN),
       /* Display user data*/
       new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
+      /* Client data */
+      new ServerClient(serverUrl, ssid, password),
        /* variables */
       true,
-      PB1_SELECT_DATA1
+      PB1_SELECT_DATA1,
+      0
   };
 
   systemData->oledDisplay->init();
@@ -294,6 +347,8 @@ void setup() {
   xTaskCreate(TaskProcessData, "ProcessData", 2048, systemData, 2, NULL);  
   xTaskCreate(TaskControlActuators, "ControlActuators", 2048, systemData, 1, NULL);
   xTaskCreate(TaskDisplay, "Display", 2048, systemData, 1, NULL);
+  xTaskCreate(TaskSendDataToServer, "SendData", 4096, systemData, 1, NULL);
+
 }
 
 /* Empty loop since FreeRTOS manages execution in tasks */

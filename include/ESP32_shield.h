@@ -1,3 +1,6 @@
+#ifndef ESP32_SHIELD_H
+#define ESP32_SHIELD_H
+
 // Optocoupled Inputs
 #define SHIELD_OPTOIN1_D26    (26)
 #define SHIELD_OPTOIN2_D27    (27)
@@ -58,3 +61,4 @@
 // DHT11 Sensor
 #define SHIELD_DHT11_D13      (13)
 
+#endif
