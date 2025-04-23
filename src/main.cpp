@@ -44,6 +44,7 @@ using namespace std;
 #define TASK_CORE_1 (1)
 
 const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* IP of localhost */
+const char* resetServerUrl = "http://192.168.100.9:3000/resetServer";
 const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
 const char* password = "3kK4H6W48P";
 
@@ -171,12 +172,14 @@ void TaskProcessData(void* pvParameters) {
         relay2State = false;
       } else {
         data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
-        
         if (levelPercentage <= MIN_LVL_PERCENTAGE) {
+          /* Activate relay2 when level percentage is low */
           relay2State = true;
-        }  
-        else if (levelPercentage >= MAX_LVL_PERCENTAGE) {
+        } else if (levelPercentage >= MAX_LVL_PERCENTAGE) {
+          /* Deactivate relay2 when level percentage has reach the max*/
           relay2State = false;
+        } else {
+          /* Do nothing */
         }
       }
       if(levelPercentage >= 100) {
@@ -283,7 +286,7 @@ void TaskDisplay(void* pvParameters) {
               data->oledDisplay->SetdisplayData(0,   0, "Wifi: ");
               data->oledDisplay->SetdisplayData(0,   10, ssid);
               data->oledDisplay->SetdisplayData(0,   20, "Status: ");
-              data->oledDisplay->SetdisplayData(45,   20, data->client->GetWiFiStatus() ? "Connected" : "Disconnected");
+              data->oledDisplay->SetdisplayData(45,   20, data->client->IsWiFiConnected() ? "Connected" : "Disconnected");
           break;
       }
 
@@ -303,44 +306,53 @@ void TaskDisplay(void* pvParameters) {
 }
 
 void TaskSendDataToServer(void* pvParameters) {
-  SystemData* data = (SystemData*)pvParameters;
-  
-  /* Wait until wifi is connected */
-  Serial.println("Waiting for WiFi connection...");
-  data->client->connectWiFi();
-  Serial.println("WiFi connected!");
+    SystemData* data = (SystemData*)pvParameters;
+    bool wifiConnecting = false; /* Flag to track if WiFi connection is being attempted */ 
+    bool wifiConnectedMessagePrinted = false; /* Flag to track if the "WiFi connected!" message has been printed */ 
 
-  for (;;) {
-      /* backend server.js needs to be running */
-      unsigned long currentMillis = millis();
-      static unsigned long lastSendTime = 0;
+    for (;;) {
+        if (data->client->IsWiFiConnected()) {
+            wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
+            unsigned long currentMillis = millis();
+            static unsigned long lastSendTime = 0;
+            
+            if (!wifiConnectedMessagePrinted) {
+              Serial.println("WiFi connected!");
+              wifiConnectedMessagePrinted = true; 
+            }
 
-      /* Send data to Firebase server */
-      if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_30_S) { 
-          lastSendTime = currentMillis;
+            /* Send data to Firebase server */
+            if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_30_S) {
+                lastSendTime = currentMillis;
 
-          /* Send sensors data */
-          data->client->prepareData("type", "sensors");
-          data->client->prepareData("lvl", String(data->levelPercentage));
-          data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
-          data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
-          data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
-          data->client->prepareData("pir", String(data->PirPresenceDetected));
-          data->client->sendPayload();
+                Serial.println("Sending data to server...");
+                /* Send sensors data */
+                data->client->prepareData("type", "sensors");
+                data->client->prepareData("lvl", String(data->levelPercentage));
+                data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
+                data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
+                data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
+                data->client->prepareData("pir", String(data->PirPresenceDetected));
+                data->client->sendPayload();
 
-          /* Send Actuators data */
-          data->client->prepareData("type", "actuators");
-          data->client->prepareData("lmp", String(data->relay1->getOutstate()));
-          data->client->prepareData("pmp", String(data->relay2->getOutstate()));
-          data->client->prepareData("flt", String(data->ledInd->getOutstate()));
-          data->client->sendPayload();
+                /* Send Actuators data */
+                data->client->prepareData("type", "actuators");
+                data->client->prepareData("lmp", String(data->relay1->getOutstate()));
+                data->client->prepareData("pmp", String(data->relay2->getOutstate()));
+                data->client->prepareData("flt", String(data->ledInd->getOutstate()));
+                data->client->sendPayload();
+            }
+        } else {
+            wifiConnectedMessagePrinted = false; /* Reset the flag when WiFi is disconnected */ 
+            if (!wifiConnecting) {
+                wifiConnecting = true; /* Set the flag to prevent multiple connection attempts */ 
+                Serial.println("WiFi disconnected! Attempting to reconnect...");
+                data->client->connectWiFi();
+            }
+        }
 
-          Serial.println("Data sent to server!");
-
-      }
-
-      vTaskDelay(pdMS_TO_TICKS(100)); // Keep task responsive
-  }
+        vTaskDelay(pdMS_TO_TICKS(100)); // Keep task responsive
+    }
 }
 
 const char* getResetReasonString(esp_reset_reason_t reason) {

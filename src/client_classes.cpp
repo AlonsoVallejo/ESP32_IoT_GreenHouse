@@ -16,17 +16,14 @@ ServerClient::ServerClient(const char* serverUrl, const char* ssid, const char* 
  */
 void ServerClient::connectWiFi() {
     WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        vTaskDelay(pdMS_TO_TICKS(500)); // Wait while trying to connect
-    }
 }
 
 /**
  * @brief Get the current status of the WiFi connection
  * @return  True if connected, false otherwise
  */
-bool ServerClient::GetWiFiStatus() {
-    return WiFi.status() == WL_CONNECTED ? true : false;
+bool ServerClient::IsWiFiConnected() {
+    return WiFi.status() != WL_CONNECTED ? false : true;
 }
 
 /**
@@ -49,15 +46,29 @@ void ServerClient::prepareData(const String& key, const String& value) {
 void ServerClient::sendPayload() {
     payload += "}"; // Close the JSON object
     HTTPClient http;
-    http.begin(serverUrl);
-    http.setTimeout(5000); // 5-second timeout
-    http.addHeader("Content-Type", "application/json");
-    
-    int httpResponseCode = http.POST(payload);
-    if (httpResponseCode <= 0) {
-        Serial.println("HTTP POST failed");
-    } 
-    http.end();
+
+    for (int retry = 0; retry < 3; retry++) { // Retry up to 3 times
+        http.begin(serverUrl);
+        http.setTimeout(5000);
+        http.addHeader("Content-Type", "application/json");
+
+        int httpResponseCode = http.POST(payload);
+        if (httpResponseCode > 0) {
+            // HTTP POST successful
+            Serial.print("HTTP POST successful, response code: ");
+            Serial.println(httpResponseCode);
+            break; // Exit retry loop
+        } else {
+            // HTTP POST failed
+            Serial.print("HTTP POST failed, error: ");
+            Serial.println(http.errorToString(httpResponseCode).c_str());
+        }
+
+        http.end(); // Close the connection
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Wait 2 seconds before retrying
+    }
+
+    http.end(); // Ensure connection cleanup
     payload = "{}"; // Reset payload
 }
 

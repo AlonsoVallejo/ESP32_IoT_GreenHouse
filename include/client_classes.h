@@ -16,7 +16,7 @@ public:
     void prepareData(const String& key, const String& value);
     void sendPayload();
     void closeConnection();
-    bool GetWiFiStatus();
+    bool IsWiFiConnected();
 };
 
 #endif // CLIENT_CLASSES_H
