@@ -19,7 +19,7 @@ OledDisplay::OledDisplay(uint8_t width, uint8_t height, uint8_t lcd_addr)
 void OledDisplay::init() {
     display.begin(SSD1306_SWITCHCAPVCC, lcd_addr); // Initialize display with I2C address
     display.display();  // Refresh display after initialization
-    delay(500); // Short delay for stabilization
+    vTaskDelay(pdMS_TO_TICKS(500)); // Short delay for stabilization
 }
 
 /**

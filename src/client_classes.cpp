@@ -1,4 +1,6 @@
 #include "client_classes.h"
+#include <Arduino.h>
+
 
 /**
  * @brief Constructor for ServerClient class
@@ -14,10 +16,17 @@ ServerClient::ServerClient(const char* serverUrl, const char* ssid, const char* 
  */
 void ServerClient::connectWiFi() {
     WiFi.begin(ssid, password);
-    
     while (WiFi.status() != WL_CONNECTED) {
         vTaskDelay(pdMS_TO_TICKS(500)); // Wait while trying to connect
     }
+}
+
+/**
+ * @brief Get the current status of the WiFi connection
+ * @return  True if connected, false otherwise
+ */
+bool ServerClient::GetWiFiStatus() {
+    return WiFi.status() == WL_CONNECTED ? true : false;
 }
 
 /**
@@ -39,15 +48,17 @@ void ServerClient::prepareData(const String& key, const String& value) {
  */
 void ServerClient::sendPayload() {
     payload += "}"; // Close the JSON object
-
     HTTPClient http;
-    http.begin(serverUrl); // Initialize HTTP connection
-    http.addHeader("Content-Type", "application/json"); // Set request header
-
-    int httpResponseCode = http.POST(payload); // Send HTTP request
-    http.end(); // Close connection
-
-    payload = "{}"; // Reset payload after transmission
+    http.begin(serverUrl);
+    http.setTimeout(5000); // 5-second timeout
+    http.addHeader("Content-Type", "application/json");
+    
+    int httpResponseCode = http.POST(payload);
+    if (httpResponseCode <= 0) {
+        Serial.println("HTTP POST failed");
+    } 
+    http.end();
+    payload = "{}"; // Reset payload
 }
 
 /**

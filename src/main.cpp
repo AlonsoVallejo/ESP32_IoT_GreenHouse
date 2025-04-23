@@ -4,6 +4,7 @@
 #include "OledDisplay_classes.h"
 #include "client_classes.h"
 #include "ESP32_shield.h"
+#include <esp_system.h> 
 
 using namespace std;
 
@@ -16,17 +17,15 @@ using namespace std;
 #define ACTUATOR_RELAY1_PIN   (SHIELD_RELAY1_D4)
 #define ACTUATOR_RELAY2_PIN   (SHIELD_RELAY2_D2)
 
-/* Defined times for each task in ms */
 #define SUBTASK_INTERVAL_100_MS  (100)
-#define SUBTASK_INTERVAL_500_MS  (500)   
-#define SUBTASK_INTERVAL_3000_MS (3000)  
-#define SUBTASK_INTERVAL_5000_MS (5000)  
-
-#define DISPLAY_INTERVAL_300_MS   (300)   
+#define SUBTASK_INTERVAL_500_MS  (500)
+#define SUBTASK_INTERVAL_1000_MS (1000)     
+#define SUBTASK_INTERVAL_3_S     (3000)  
+#define SUBTASK_INTERVAL_30_S    (30000)  
 
 #define SENSOR_LVL_OPENCKT_V (3975) // ADC value for open circuit
-#define SENSOR_LVL_STG_V     (124) // ADC value for short circuit
-#define SENSOR_LVL_THRESHOLD_V (50) // Threshold for level sensor
+#define SENSOR_LVL_STG_V     (124)  // ADC value for short circuit
+#define SENSOR_LVL_THRESHOLD_V (50) // ADC Threshold for level sensor
 
 #define MAX_LVL_PERCENTAGE (90) 
 #define MIN_LVL_PERCENTAGE (20) 
@@ -41,8 +40,11 @@ using namespace std;
 
 #define SENSOR_PIR_COOL_DOWN_TIME (5000) 
 
+#define TASK_CORE_0 (0)
+#define TASK_CORE_1 (1)
+
 const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* IP of localhost */
-const char* ssid = "MEGACABLE-2.4G-FAA4";
+const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
 const char* password = "3kK4H6W48P";
 
 enum pb1Selector{
@@ -75,39 +77,41 @@ struct SystemData {
   uint16_t levelPercentage;
 };
 
+SemaphoreHandle_t xSystemDataMutex;
+
 void TaskReadSensors(void* pvParameters) {
-  SystemData* data = (SystemData*)pvParameters;
-  unsigned long lastTempHumReadTime = 0; /** Tracks last temp/humidity read time */
-  unsigned long lastButtonPressTime = 0;
+    SystemData* data = (SystemData*)pvParameters;
+    unsigned long lastTempHumReadTime = 0;
+    unsigned long lastButtonPressTime = 0;
 
-  for (;;) {
-      unsigned long currentMillis = millis(); /** Get current time */
+    for (;;) {
+        unsigned long currentMillis = millis();
 
-      /* Update level, light, and PIR sensor values every 100ms */
-      data->levelSensor->readRawValue();
-      data->lightSensor->readRawValue();
-      data->pirSensor->readRawValue();
-      data->buttonSelector->readRawValue();
+        /* Update sensor values */
+        data->levelSensor->readRawValue();
+        data->lightSensor->readRawValue();
+        data->pirSensor->readRawValue();
+        data->buttonSelector->readRawValue();
 
-      /* push button selector input is inverted */
-      bool buttonState = !(data->buttonSelector->getSensorValue());
- 
-      /* Check for button press with debounce */ 
-      if (buttonState && (currentMillis - lastButtonPressTime > 300)) { /* 300ms debounce */ 
-          lastButtonPressTime = currentMillis;
+        /* Protect shared variable access */
+        if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
+            bool buttonState = !(data->buttonSelector->getSensorValue());
+            if (buttonState && (currentMillis - lastButtonPressTime > 300)) {
+                lastButtonPressTime = currentMillis;
+                data->currentSelector = static_cast<pb1Selector>((data->currentSelector + 1) % sizeof(pb1Selector));
+            }
+            xSemaphoreGive(xSystemDataMutex);
+        }
 
-          data->currentSelector = static_cast<pb1Selector>((data->currentSelector + 1) % sizeof(pb1Selector)); 
-      }
+        /* Read temperature and humidity */
+        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_3_S) {
+            lastTempHumReadTime = currentMillis;
+            data->tempHumSensor->readValueTemperature();
+            data->tempHumSensor->readValueHumidity();
+        }
 
-      /* Read temperature and humidity every 3 seconds */
-      if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_3000_MS) {
-          lastTempHumReadTime = currentMillis;
-          data->tempHumSensor->readValueTemperature();
-          data->tempHumSensor->readValueHumidity();
-      }
-
-      vTaskDelay(pdMS_TO_TICKS(100)); /** Maintain 100ms loop timing */
-  }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 }
 
 void TaskProcessData(void* pvParameters) {
@@ -153,7 +157,6 @@ void TaskProcessData(void* pvParameters) {
       } else {
 
       }
-      data->PirPresenceDetected = presenceDetected;
 
       /* Handle relay2 activation logic */
       uint16_t levelValue = data->levelSensor->getSensorValue();
@@ -176,8 +179,16 @@ void TaskProcessData(void* pvParameters) {
           relay2State = false;
         }
       }
+      if(levelPercentage >= 100) {
+        levelPercentage = 100; // Ensure level percentage does not exceed 100%
+      } 
 
-      data->levelPercentage = levelPercentage;
+      /** Protect shared variable access */
+      if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
+          data->PirPresenceDetected = presenceDetected;
+          data->levelPercentage = levelPercentage;
+          xSemaphoreGive(xSystemDataMutex);
+      }
 
       /** Apply relay2 state */
       data->relay2->SetOutState(relay2State); 
@@ -272,13 +283,22 @@ void TaskDisplay(void* pvParameters) {
               data->oledDisplay->SetdisplayData(0,   0, "Wifi: ");
               data->oledDisplay->SetdisplayData(0,   10, ssid);
               data->oledDisplay->SetdisplayData(0,   20, "Status: ");
-              data->oledDisplay->SetdisplayData(45,   20, WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
+              data->oledDisplay->SetdisplayData(45,   20, data->client->GetWiFiStatus() ? "Connected" : "Disconnected");
           break;
       }
 
+      Serial.print("Level: " + String(data->levelPercentage) + "%");
+      Serial.print(" Temperature: " + String(data->tempHumSensor->getTemperature()) + "C");
+      Serial.print(" Humidity: " + String(data->tempHumSensor->getHumidity()) + "%");
+      Serial.print(" Light: " + String(data->lightSensor->getSensorValue()));
+      Serial.print(" PIR: " + String(data->PirPresenceDetected));
+      Serial.print(" Lamp: " + String(data->relay1->getOutstate()));
+      Serial.print(" Pump: " + String(data->relay2->getOutstate()));
+      Serial.println(" Fault: " + String(data->ledInd->getOutstate()));
+
       data->oledDisplay->PrintdisplayData();
 
-      vTaskDelay(pdMS_TO_TICKS(DISPLAY_INTERVAL_300_MS)); // Refresh display every 300ms
+      vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_1000_MS)); // Update display every 1 second
   }
 }
 
@@ -286,7 +306,9 @@ void TaskSendDataToServer(void* pvParameters) {
   SystemData* data = (SystemData*)pvParameters;
   
   /* Wait until wifi is connected */
+  Serial.println("Waiting for WiFi connection...");
   data->client->connectWiFi();
+  Serial.println("WiFi connected!");
 
   for (;;) {
       /* backend server.js needs to be running */
@@ -294,61 +316,103 @@ void TaskSendDataToServer(void* pvParameters) {
       static unsigned long lastSendTime = 0;
 
       /* Send data to Firebase server */
-      if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_5000_MS) { 
+      if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_30_S) { 
           lastSendTime = currentMillis;
 
-          data->client->prepareData("PirPresenceDetected", String(data->PirPresenceDetected));
-          data->client->prepareData("levelPercentage", String(data->levelPercentage));
-          data->client->prepareData("lightValue", String(data->lightSensor->getSensorValue()));
-          data->client->prepareData("temperatureValue", String(data->tempHumSensor->getTemperature()));
-          data->client->prepareData("humidityValue", String(data->tempHumSensor->getHumidity()));
-          data->client->prepareData("lamp", String(data->relay1->getOutstate()));
-          data->client->prepareData("pump", String(data->relay2->getOutstate()));
+          /* Send sensors data */
+          data->client->prepareData("type", "sensors");
+          data->client->prepareData("lvl", String(data->levelPercentage));
+          data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
+          data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
+          data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
+          data->client->prepareData("pir", String(data->PirPresenceDetected));
+          data->client->sendPayload();
 
-          data->client->sendPayload(); // Send data
+          /* Send Actuators data */
+          data->client->prepareData("type", "actuators");
+          data->client->prepareData("lmp", String(data->relay1->getOutstate()));
+          data->client->prepareData("pmp", String(data->relay2->getOutstate()));
+          data->client->prepareData("flt", String(data->ledInd->getOutstate()));
+          data->client->sendPayload();
+
+          Serial.println("Data sent to server!");
+
       }
 
-      vTaskDelay(pdMS_TO_TICKS(500)); // Keep task responsive
+      vTaskDelay(pdMS_TO_TICKS(100)); // Keep task responsive
+  }
+}
+
+const char* getResetReasonString(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_UNKNOWN:    return "Reset reason cannot be determined";
+    case ESP_RST_POWERON:    return "Reset due to power-on event";
+    case ESP_RST_EXT:        return "Reset by external pin (not applicable for ESP32)";
+    case ESP_RST_SW:         return "Software reset via esp_restart";
+    case ESP_RST_PANIC:      return "Software reset due to exception/panic";
+    case ESP_RST_INT_WDT:    return "Reset due to interrupt watchdog";
+    case ESP_RST_TASK_WDT:   return "Reset due to task watchdog";
+    case ESP_RST_WDT:        return "Reset due to other watchdogs";
+    case ESP_RST_DEEPSLEEP:  return "Reset after exiting deep sleep mode";
+    case ESP_RST_BROWNOUT:   return "Brownout reset (software or hardware)";
+    case ESP_RST_SDIO:       return "Reset over SDIO";
+    default:                 return "Unknown reset reason";
   }
 }
 
 void setup() {
   Serial.begin(9600);
 
-  /* Allocate memory for struct dynamically */
-  SystemData* systemData = new SystemData {
-      /* Sensors */
-      new AnalogSensor(SENSOR_LVL_PIN),
-      new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
-      new DigitalSensor(SENSOR_PIR_PIN),
-      new DigitalSensor(SENSOR_LDR_PIN),
-      new DigitalSensor(SENSOR_PBSELECTOR_PIN),
-       /* Actuators */
-      new Actuator(ACTUATOR_LED_PWM_PIN),
-      new Actuator(ACTUATOR_RELAY1_PIN),
-      new Actuator(ACTUATOR_RELAY2_PIN),
-      /* Display user data*/
-      new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-      /* Client data */
-      new ServerClient(serverUrl, ssid, password),
-       /* variables */
-      true,
-      PB1_SELECT_DATA1,
-      0
+  Serial.println("Starting...");
+
+  // Get the reset reason for CPU0
+  esp_reset_reason_t reason = esp_reset_reason();
+  Serial.print("Reset reason: ");
+  Serial.println(getResetReasonString(reason));
+
+  xSystemDataMutex = xSemaphoreCreateMutex();
+  if (xSystemDataMutex == NULL) {
+      Serial.println("Failed to create mutex");
+  }
+
+  static SystemData systemData = {
+    /* Sensors */
+    new AnalogSensor(SENSOR_LVL_PIN),
+    new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
+    new DigitalSensor(SENSOR_PIR_PIN),
+    new DigitalSensor(SENSOR_LDR_PIN),
+    new DigitalSensor(SENSOR_PBSELECTOR_PIN),
+    /* Actuators */
+    new Actuator(ACTUATOR_LED_PWM_PIN),
+    new Actuator(ACTUATOR_RELAY1_PIN),
+    new Actuator(ACTUATOR_RELAY2_PIN),
+    /* Display */
+    new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
+    /* Client */
+    new ServerClient(serverUrl, ssid, password),
+    /* Variables */
+    true,
+    PB1_SELECT_DATA1,
+    0
   };
 
-  systemData->oledDisplay->init();
-  systemData->oledDisplay->clearAllDisplay();
-  systemData->oledDisplay->setTextProperties(1, SSD1306_WHITE);
-  systemData->tempHumSensor->dhtSensorInit();
+  systemData.oledDisplay->init();
+  systemData.oledDisplay->clearAllDisplay();
+  systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
+  systemData.tempHumSensor->dhtSensorInit();
+  
+  Serial.println("Sensor/Actuator/Display/WiFi objects initialized");
 
-  /* Create FreeRTOS tasks, passing systemData struct instead of using global variables */
-  xTaskCreate(TaskReadSensors, "ReadSensors", 2048, systemData, 2, NULL);
-  xTaskCreate(TaskProcessData, "ProcessData", 2048, systemData, 2, NULL);  
-  xTaskCreate(TaskControlActuators, "ControlActuators", 2048, systemData, 1, NULL);
-  xTaskCreate(TaskDisplay, "Display", 2048, systemData, 1, NULL);
-  xTaskCreate(TaskSendDataToServer, "SendData", 4096, systemData, 1, NULL);
+  /* Core 0: Real-Time Peripheral and Logic */
+  xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 2048, &systemData, 3, NULL, TASK_CORE_0);
+  xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", 2048, &systemData, 2, NULL, TASK_CORE_0);
+  xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", 2048, &systemData, 2, NULL, TASK_CORE_0);
+  Serial.println("Core 0: Sensor/Actuator tasks initialized");
 
+  /* Core 1: Communication and Display */
+  xTaskCreatePinnedToCore(TaskDisplay, "Display", 2048, &systemData, 2, NULL, TASK_CORE_1);
+  xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", 4096, &systemData, 1, NULL, TASK_CORE_1);
+  Serial.println("Core 1: Display/Client tasks initialized");
 }
 
 /* Empty loop since FreeRTOS manages execution in tasks */
