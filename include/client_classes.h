@@ -17,6 +17,7 @@ public:
     void sendPayload();
     void closeConnection();
     bool IsWiFiConnected();
+    void resetServer();
 };
 
 #endif // CLIENT_CLASSES_H

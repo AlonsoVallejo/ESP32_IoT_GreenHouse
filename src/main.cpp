@@ -44,7 +44,6 @@ using namespace std;
 #define TASK_CORE_1 (1)
 
 const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* IP of localhost */
-const char* resetServerUrl = "http://192.168.100.9:3000/resetServer";
 const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
 const char* password = "3kK4H6W48P";
 
@@ -325,8 +324,7 @@ void TaskSendDataToServer(void* pvParameters) {
             if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_30_S) {
                 lastSendTime = currentMillis;
 
-                Serial.println("Sending data to server...");
-                /* Send sensors data */
+                Serial.println("Sending Sensor data to server...");
                 data->client->prepareData("type", "sensors");
                 data->client->prepareData("lvl", String(data->levelPercentage));
                 data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
@@ -335,7 +333,7 @@ void TaskSendDataToServer(void* pvParameters) {
                 data->client->prepareData("pir", String(data->PirPresenceDetected));
                 data->client->sendPayload();
 
-                /* Send Actuators data */
+                Serial.println("Sending Actuators data to server...");
                 data->client->prepareData("type", "actuators");
                 data->client->prepareData("lmp", String(data->relay1->getOutstate()));
                 data->client->prepareData("pmp", String(data->relay2->getOutstate()));
