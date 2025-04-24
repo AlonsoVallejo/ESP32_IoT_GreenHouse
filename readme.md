@@ -1,6 +1,6 @@
-# ESP32 IoT Project with Firebase Integration
+# ESP32 IoT Greenhouse Monitoring System
 
-This project is an IoT application using an ESP32 microcontroller to collect sensor data, control actuators, and send data to a Firebase Realtime Database via a backend server. The project includes tasks for reading sensors, controlling actuators, updating an OLED display, and sending data to the server.
+Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroller. The system collects real-time data from sensors (light, temperature, humidity, PIR, water level) and controls actuators (LEDs, relays) based on environmental conditions. Data is displayed on an OLED screen and sent to a backend server built with Node.js, which integrates with Firebase Realtime Database for storage and timestamping. The project leverages FreeRTOS for multitasking, PlatformIO for firmware development, and RESTful APIs for communication. Designed for efficient monitoring and automation of greenhouse environments.
 
 ## Features
 
