@@ -17,6 +17,7 @@ public:
     void sendPayload();
     void closeConnection();
     bool IsWiFiConnected();
+    IPAddress getWiFiLocalIp();
     void resetServer();
 };
 

@@ -64,21 +64,19 @@ uint16_t TemperatureHumiditySensor::readRawValue() {
 
 /**
  * @brief Reads the humidity measurement from the sensor.
- * Protects against invalid (NaN) values.
- * @return Humidity percentage as a double. Returns -999.0 if the value is invalid.
+ * @return Humidity percentage as a float. Returns NAN if the value is invalid.
  */
 double TemperatureHumiditySensor::readValueHumidity() {
-    humidity = dth11Sensor::dhtReadHum();
+    humidity = dth11Sensor::readHumidity();
     return humidity;
 }
 
 /**
  * @brief Reads the temperature measurement from the sensor.
- * Protects against invalid (NaN) values.
- * @return Temperature in degrees Celsius as a double. Returns -999.0 if the value is invalid.
+ * @return Temperature in degrees Celsius as a float. Returns NAN if the value is invalid.
  */
 double TemperatureHumiditySensor::readValueTemperature() {
-    temperature = dth11Sensor::dthReadTemp();
+    temperature = dth11Sensor::readTemperature();
     return temperature;
 }
 

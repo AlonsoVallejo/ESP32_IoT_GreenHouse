@@ -316,7 +316,8 @@ void TaskSendDataToServer(void* pvParameters) {
             static unsigned long lastSendTime = 0;
             
             if (!wifiConnectedMessagePrinted) {
-              Serial.println("WiFi connected!");
+              Serial.print("WiFi connected! ESP32 IP Address: ");
+              Serial.println(data->client->getWiFiLocalIp());
               wifiConnectedMessagePrinted = true; 
             }
 
@@ -371,58 +372,59 @@ const char* getResetReasonString(esp_reset_reason_t reason) {
 }
 
 void setup() {
-  Serial.begin(9600);
+    Serial.begin(9600);
 
-  Serial.println("Starting...");
+    Serial.println("Starting...");
 
-  // Get the reset reason for CPU0
-  esp_reset_reason_t reason = esp_reset_reason();
-  Serial.print("Reset reason: ");
-  Serial.println(getResetReasonString(reason));
+    // Get the reset reason for CPU0
+    esp_reset_reason_t reason = esp_reset_reason();
+    Serial.print("Reset reason: ");
+    Serial.println(getResetReasonString(reason));
 
-  xSystemDataMutex = xSemaphoreCreateMutex();
-  if (xSystemDataMutex == NULL) {
-      Serial.println("Failed to create mutex");
-  }
+    xSystemDataMutex = xSemaphoreCreateMutex();
+    if (xSystemDataMutex == NULL) {
+        Serial.println("Failed to create mutex");
+    }
 
-  static SystemData systemData = {
-    /* Sensors */
-    new AnalogSensor(SENSOR_LVL_PIN),
-    new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
-    new DigitalSensor(SENSOR_PIR_PIN),
-    new DigitalSensor(SENSOR_LDR_PIN),
-    new DigitalSensor(SENSOR_PBSELECTOR_PIN),
-    /* Actuators */
-    new Actuator(ACTUATOR_LED_PWM_PIN),
-    new Actuator(ACTUATOR_RELAY1_PIN),
-    new Actuator(ACTUATOR_RELAY2_PIN),
-    /* Display */
-    new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-    /* Client */
-    new ServerClient(serverUrl, ssid, password),
-    /* Variables */
-    true,
-    PB1_SELECT_DATA1,
-    0
-  };
+    static SystemData systemData = {
+        /* Sensors */
+        new AnalogSensor(SENSOR_LVL_PIN),
+        new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
+        new DigitalSensor(SENSOR_PIR_PIN),
+        new DigitalSensor(SENSOR_LDR_PIN),
+        new DigitalSensor(SENSOR_PBSELECTOR_PIN),
+        /* Actuators */
+        new Actuator(ACTUATOR_LED_PWM_PIN),
+        new Actuator(ACTUATOR_RELAY1_PIN),
+        new Actuator(ACTUATOR_RELAY2_PIN),
+        /* Display */
+        new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
+        /* Client */
+        new ServerClient(serverUrl, ssid, password),
+        /* Variables */
+        true,
+        PB1_SELECT_DATA1,
+        0
+    };
 
-  systemData.oledDisplay->init();
-  systemData.oledDisplay->clearAllDisplay();
-  systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
-  systemData.tempHumSensor->dhtSensorInit();
-  
-  Serial.println("Sensor/Actuator/Display/WiFi objects initialized");
+    systemData.oledDisplay->init();
+    systemData.oledDisplay->clearAllDisplay();
+    systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
 
-  /* Core 0: Real-Time Peripheral and Logic */
-  xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 4096, &systemData, 3, NULL, TASK_CORE_0);
-  xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", 2048, &systemData, 2, NULL, TASK_CORE_0);
-  xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", 2048, &systemData, 2, NULL, TASK_CORE_0);
-  Serial.println("Core 0: Sensor/Actuator tasks initialized");
+    systemData.tempHumSensor->dhtSensorInit();
 
-  /* Core 1: Communication and Display */
-  xTaskCreatePinnedToCore(TaskDisplay, "Display", 2048, &systemData, 2, NULL, TASK_CORE_1);
-  xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", 4096, &systemData, 1, NULL, TASK_CORE_1);
-  Serial.println("Core 1: Display/Client tasks initialized");
+    Serial.println("Sensor/Actuator/Display/WiFi objects initialized");
+
+    /* Core 0: Real-Time Peripheral and Logic */
+    xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 4096, &systemData, 3, NULL, TASK_CORE_0);
+    xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", 2048, &systemData, 2, NULL, TASK_CORE_0);
+    xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", 2048, &systemData, 2, NULL, TASK_CORE_0);
+    Serial.println("Core 0: Sensor/Actuator tasks initialized");
+
+    /* Core 1: Communication and Display */
+    xTaskCreatePinnedToCore(TaskDisplay, "Display", 2048, &systemData, 2, NULL, TASK_CORE_1);
+    xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", 4096, &systemData, 1, NULL, TASK_CORE_1);
+    Serial.println("Core 1: Display/Client tasks initialized");
 }
 
 void loop() {

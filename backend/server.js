@@ -76,8 +76,8 @@ app.get("/", (req, res) => {
 app.post("/updateData", (req, res) => {
   const sensorData = req.body;
 
-  if (Object.keys(sensorData).length === 0) {
-    return res.status(400).send({ error: "No data received" });
+  if (!sensorData || Object.keys(sensorData).length === 0) {
+    return res.status(400).send({ error: "No data received or invalid JSON payload" });
   }
 
   const timestampCST = moment().tz("America/Mexico_City").format();

@@ -27,6 +27,14 @@ bool ServerClient::IsWiFiConnected() {
 }
 
 /**
+ * @brief Get the local IP address of the ESP32
+ * @return The local IP address of the ESP32
+ */
+IPAddress ServerClient::getWiFiLocalIp() {
+    return WiFi.localIP();
+}
+
+/**
  * @brief Adds a key-value pair to the JSON payload
  * @param key The name of the data field
  * @param value The corresponding value to store

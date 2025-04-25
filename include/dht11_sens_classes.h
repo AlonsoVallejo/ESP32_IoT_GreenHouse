@@ -1,17 +1,18 @@
-#ifndef DHT11_SENS_CLASSES_H  // Prevent multiple inclusions
+#ifndef DHT11_SENS_CLASSES_H
 #define DHT11_SENS_CLASSES_H
 
-#include <DHT.h>
+#include "../lib/DTH11/src/DHTesp.h"
 
 class dth11Sensor {
 private:
-    DHT TempHumSens;
+    DHTesp TempHumSens;
+    uint8_t pin; 
 public:
     dth11Sensor(uint8_t pin);
 
     void dhtSensorInit();
-    double dthReadTemp();
-    double dhtReadHum();
+    float readTemperature(); 
+    float readHumidity();    
 };
 
 #endif

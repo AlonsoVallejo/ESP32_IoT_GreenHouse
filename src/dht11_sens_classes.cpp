@@ -5,37 +5,28 @@
  * @brief Constructor for the DHT11 sensor wrapper class.
  * @param pin The input pin connected to the DHT11 sensor.
  */
-dth11Sensor::dth11Sensor(uint8_t pin) : TempHumSens(pin, DHT11) {}
+dth11Sensor::dth11Sensor(uint8_t pin) : pin(pin) {}
 
 /**
  * @brief Initializes the DHT11 sensor.
  * This method must be called before attempting to read temperature or humidity.
  */
 void dth11Sensor::dhtSensorInit() {
-    TempHumSens.begin();
+    TempHumSens.setup(pin, DHTesp::DHT11); // Initialize the DHT11 sensor
 }
 
 /**
  * @brief Reads the temperature from the DHT11 sensor.
- * Protects against invalid (NaN) values.
- * @return Temperature in degrees Celsius as a double. Returns -999.0 if the value is invalid.
+ * @return Temperature in degrees Celsius as a float. Returns NAN if the value is invalid.
  */
-double dth11Sensor::dthReadTemp() {
-    double temperature = (double)TempHumSens.readTemperature();
-    if (isnan(temperature)) {
-        return -999.0; // Return an error value
-    }
-    return temperature;
+float dth11Sensor::readTemperature() {
+    return TempHumSens.getTemperature();
 }
 
 /**
  * @brief Reads the humidity from the DHT11 sensor.
- * @return Humidity percentage as a double. Returns -999.0 if the value is invalid.
+ * @return Humidity percentage as a float. Returns NAN if the value is invalid.
  */
-double dth11Sensor::dhtReadHum() {
-    double humidity = (double)TempHumSens.readHumidity();
-    if (isnan(humidity)) {
-        return -999.0; // Return an error value
-    }
-    return humidity;
+float dth11Sensor::readHumidity() {
+    return TempHumSens.getHumidity();
 }
