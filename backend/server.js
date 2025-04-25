@@ -64,9 +64,7 @@ setInterval(async () => {
     if (!admin.apps.length) { // Only reinitialize if Firebase is not active
       console.log("Internet connection restored. Reinitializing Firebase...");
       db = initializeFirebase(); // Reinitialize Firebase
-    } else {
-      console.log("Firebase is already active and internet connection is restored.");
-    }
+    } 
   }
 }, 10000); // Check every 10 seconds
 

@@ -106,11 +106,11 @@ void TaskReadSensors(void* pvParameters) {
         /* Read temperature and humidity */
         if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_3_S) {
             lastTempHumReadTime = currentMillis;
-            data->tempHumSensor->readValueTemperature();
-            data->tempHumSensor->readValueHumidity();
+            double temperature = data->tempHumSensor->readValueTemperature();
+            double humidity = data->tempHumSensor->readValueHumidity();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100 ms
     }
 }
 
@@ -414,7 +414,7 @@ void setup() {
   Serial.println("Sensor/Actuator/Display/WiFi objects initialized");
 
   /* Core 0: Real-Time Peripheral and Logic */
-  xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 2048, &systemData, 3, NULL, TASK_CORE_0);
+  xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 4096, &systemData, 3, NULL, TASK_CORE_0);
   xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", 2048, &systemData, 2, NULL, TASK_CORE_0);
   xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", 2048, &systemData, 2, NULL, TASK_CORE_0);
   Serial.println("Core 0: Sensor/Actuator tasks initialized");
@@ -425,7 +425,5 @@ void setup() {
   Serial.println("Core 1: Display/Client tasks initialized");
 }
 
-/* Empty loop since FreeRTOS manages execution in tasks */
 void loop() {
-
 }
