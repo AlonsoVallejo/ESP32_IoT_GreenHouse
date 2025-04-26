@@ -1,14 +1,19 @@
 # ESP32 IoT Greenhouse Monitoring System
 
-Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroller. The system collects real-time data from sensors (light, temperature, humidity, PIR, water level) and controls actuators (LEDs, relays) based on environmental conditions. Data is displayed on an OLED screen and sent to a backend server built with Node.js, which integrates with Firebase Realtime Database for storage and timestamping. The project leverages FreeRTOS for multitasking, PlatformIO for firmware development, and RESTful APIs for communication. Designed for efficient monitoring and automation of greenhouse environments.
+Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroller. The system collects real-time data from sensors (light, temperature, humidity, PIR, water level) and controls actuators (LEDs, relays, irrigation system) based on environmental conditions. Data is displayed on an OLED screen and sent to a backend server built with Node.js, which integrates with Firebase Realtime Database for storage and timestamping. The project leverages FreeRTOS for multitasking, PlatformIO for firmware development, and RESTful APIs for communication. Designed for efficient monitoring and automation of greenhouse environments.
 
 ## Features
 
 - **ESP32 Tasks**:
   - Read sensor data (light, temperature, humidity, PIR, water level).
-  - Control actuators (LED, relays).
+  - Control actuators (LED, relays, irrigation system).
   - Update an OLED display with real-time data.
   - Send sensor and actuator data to a backend server.
+
+- **Irrigation Control**:
+  - Automatically activates the irrigation system based on temperature and humidity thresholds.
+  - Includes hysteresis to prevent frequent toggling.
+  - Ensures stable operation by validating sensor data.
 
 - **Backend Server**:
   - Receives data from the ESP32 via HTTP POST requests.
@@ -27,6 +32,7 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
 - Actuators:
   - LED
   - Relays
+  - Irrigation system (e.g., water pump or solenoid valve)
 - OLED display
 
 ### Software
@@ -63,29 +69,32 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
    ```bash
    node server.js
    ```
-Usage
+
+## Usage
+
 1. Power on the ESP32 and ensure it connects to WiFi.
 2. The ESP32 will:
-        Read sensor data.
-        Update the OLED display.
-        Send data to the backend server every 5 seconds.
+   - Read sensor data.
+   - Update the OLED display.
+   - Send data to the backend server every 5 seconds.
 3. The backend server will:
-        Store the data in Firebase.
-        Add a timestamp in CST.
+   - Store the data in Firebase.
+   - Add a timestamp in CST.
 
-Common Issues
-ESP32 Resets Frequently:
-Ensure sufficient stack size for tasks.
-Check for blocking code in FreeRTOS tasks.
-Cannot Connect to WiFi:
+## Common Issues
 
-Verify WiFi credentials in main.cpp.
-Ensure the ESP32 is within range of the router.
-Cannot POST to /updateData:
+### ESP32 Resets Frequently
+- Ensure sufficient stack size for tasks.
+- Check for blocking code in FreeRTOS tasks.
 
-Ensure the backend server is running.
-Test the endpoint using curl or Postman.
-Firebase Errors:
+### Cannot Connect to WiFi
+- Verify WiFi credentials in main.cpp.
+- Ensure the ESP32 is within range of the router.
 
-Verify Firebase credentials in serviceAccountKey.json.
-Check Firebase rules for read/write access.
+### Cannot POST to /updateData
+- Ensure the backend server is running.
+- Test the endpoint using curl or Postman.
+
+### Firebase Errors
+- Verify Firebase credentials in serviceAccountKey.json.
+- Check Firebase rules for read/write access.

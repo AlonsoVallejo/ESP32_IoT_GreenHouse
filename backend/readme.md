@@ -8,6 +8,7 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
 ## Features
 
 - **Data Handling**: Receives data from ESP32 devices via HTTP POST requests and stores it in Firebase Realtime Database.
+- **Irrigation Control Integration**: Supports receiving and storing irrigation system status (`ON`/`OFF`) from ESP32 devices.
 - **Connectivity Monitoring**: Periodically checks for internet connectivity and dynamically reinitializes Firebase when WiFi or internet is recovered.
 - **CST Timestamp Integration**: Automatically generates timestamps in the `America/Mexico_City` timezone for accurate data logging.
 
@@ -53,7 +54,7 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
    ```
    POST http://<host>:<port>/updateData
    ```
-   - Send JSON payload with sensor or actuator data.
+   - Send JSON payload with sensor or actuator data, including irrigation status.
 
 ---
 
@@ -68,9 +69,11 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
     "type": "sensor",
     "lvl": 90,
     "tmp": 25.5,
-    "hum": 60
+    "hum": 60,
+    "irr": 1
   }
   ```
+  - `irr`: Represents the irrigation system status (`1` for `ON`, `0` for `OFF`).
 
 ---
 
@@ -84,7 +87,7 @@ The server periodically checks internet connectivity every 10 seconds:
 
 ## Project Structure
 
-- `server.js`: Main server file containing logic for Firebase integration and connectivity monitoring.
+- `server.js`: Main server file containing logic for Firebase integration, irrigation control, and connectivity monitoring.
 - `esp32_project_serviceAccountKey.json`: Firebase credentials file (you need to add this manually).
 - `package.json`: Manages dependencies.
 
@@ -112,6 +115,6 @@ The server periodically checks internet connectivity every 10 seconds:
 
 - Ensure Firebase credentials (`esp32_project_serviceAccountKey.json`) are valid.
 - Monitor server logs via PM2 to confirm connectivity changes and Firebase reinitialization.
-- Make sure your ESP32 devices send valid JSON payloads to the server.
+- Make sure your ESP32 devices send valid JSON payloads to the server, including the `irr` field for irrigation status.
 
 ---
