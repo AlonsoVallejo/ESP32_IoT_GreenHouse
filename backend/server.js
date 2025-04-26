@@ -114,6 +114,35 @@ app.post("/updateData", (req, res) => {
   }
 });
 
+app.get("/getLastData", async (req, res) => {
+  const { type } = req.query;
+
+  if (!type || (type !== "sensors" && type !== "actuators")) {
+    return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
+  }
+
+  const dbRef = type === "actuators" ? "actuatorData" : "sensorData";
+
+  if (db) {
+    try {
+      const snapshot = await db.ref(dbRef).orderByKey().limitToLast(1).once("value");
+      const data = snapshot.val();
+
+      if (data) {
+        const lastEntry = Object.values(data)[0]; // Get the most recent entry
+        res.send(lastEntry);
+      } else {
+        res.status(404).send({ error: "No data found." });
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      res.status(500).send({ error: "Error fetching data from Firebase." });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

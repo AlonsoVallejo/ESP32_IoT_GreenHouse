@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GreenHouse Monitoring System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #1e1e2f;
+      color: #f0f0f0;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 30px;
+      color: #90ee90;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 30px;
+    }
+
+    .group {
+      background-color: #2a2a3b;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      min-width: 260px;
+    }
+
+    .group h2 {
+      margin-top: 0;
+      font-size: 18px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+      color: #ffffffcc;
+    }
+
+    .card {
+      background-color: #333;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      text-align: center;
+      transition: all 0.3s ease-in-out;
+      color: #f0f0f0;
+    }
+
+    .card h3 {
+      margin: 5px 0;
+      font-size: 16px;
+    }
+
+    .card p {
+      margin: 8px 0 0;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .card span {
+      font-size: 16px;
+      color: #aaa;
+    }
+
+    .card i {
+      display: block;
+      font-size: 30px;
+      margin-bottom: 10px;
+    }
+
+    /* Animación de cambio */
+    .flash {
+      animation: flash-bg 0.8s ease-in-out;
+    }
+
+    @keyframes flash-bg {
+      0% { background-color: #444; }
+      50% { background-color: #00ff8840; }
+      100% { background-color: #333; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🌱 GreenHouse Monitoring System</h1>
+  <div class="container">
+    <div class="group" id="group1">
+      <h2>🔆 Light, PIR & Lamp</h2>
+    </div>
+    <div class="group" id="group2">
+      <h2>💧 Water, Fault & Pump</h2>
+    </div>
+    <div class="group" id="group3">
+      <h2>🌡️ Temperature & Humidity</h2>
+    </div>
+  </div>
+
+  <script>
+    const apiUrl = "http://192.168.100.9:3000/getLastData";
+
+    async function fetchData(type) {
+      try {
+        const response = await fetch(`${apiUrl}?type=${type}`);
+        if (!response.ok) throw new Error(`Failed to fetch ${type} data`);
+        const data = await response.json();
+        console.log(`Fetched ${type} data:`, data);
+        return data;
+      } catch (error) {
+        console.error(`Error fetching ${type} data:`, error);
+        return null;
+      }
+    }
+
+
+    function getIcon(title, value) {
+      switch (title) {
+        case "Temperature": return '<i class="fas fa-thermometer-half"></i>';
+        case "Humidity": return '<i class="fas fa-tint"></i>';
+        case "Water Level": return '<i class="fas fa-water"></i>';
+        case "Ambient Light": return value === "Dark" ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        case "Precense": return value === "Detected" ? '<i class="fas fa-walking"></i>' : '<i class="fas fa-user-slash"></i>';
+        case "Lamp": return value === "ON" ? '<i class="fas fa-lightbulb"></i>' : '<i class="far fa-lightbulb"></i>';
+        case "Pump": return value === "ON"
+          ? '<i class="fas fa-faucet" style="color:lightblue;"></i>'
+          : '<i class="fas fa-faucet" style="color:gray;"></i>';
+        case "Fault": return value === "YES" ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
+        default: return '<i class="fas fa-microchip"></i>';
+      }
+    }
+
+    function createOrUpdateCard(groupEl, title, unit, key, data) {
+      const id = `card-${key}`;
+      let card = document.getElementById(id);
+
+      // Interpret the value based on the key
+      const value = data[key] !== undefined
+        ? key === "ldr" ? (data[key] === "1" ? "Dark" : "Light")
+        : key === "pir" ? (data[key] === "0" ? "None" : "Detected")
+        : key === "pmp" ? (data[key] === "0" ? "OFF" : "ON")
+        : key === "flt" ? (data[key] === "0" ? "NO" : "YES")
+        : key === "lmp" ? (data[key] === "1" ? "ON" : "OFF")
+        : data[key]
+        : "N/A";
+
+      if (!card) {
+        // Create a new card if it doesn't exist
+        card = document.createElement("div");
+        card.className = "card";
+        card.id = id;
+        card.innerHTML = `
+          ${getIcon(title, value)}
+          <h3>${title}</h3>
+          <p><span class="value">${value}</span> <span>${unit}</span></p>
+        `;
+        groupEl.appendChild(card);
+      } else {
+        // Update the card if it already exists
+        const valueEl = card.querySelector(".value");
+        const oldValue = valueEl.textContent;
+        if (oldValue !== value) {
+          valueEl.textContent = value;
+          card.querySelector("i").outerHTML = getIcon(title, value);
+          card.classList.add("flash");
+          setTimeout(() => card.classList.remove("flash"), 800);
+        }
+      }
+    }
+
+    async function updateDashboard() {
+      const g1 = document.getElementById("group1");
+      const g2 = document.getElementById("group2");
+      const g3 = document.getElementById("group3");
+      const status = document.getElementById("status");
+
+      let updateTime = null;
+
+      // Fetch sensor data
+      const sensorData = await fetchData("sensors");
+      if (sensorData) {
+        console.log("Updating sensor data:", sensorData);
+        createOrUpdateCard(g1, "Ambient Light", "", "ldr", sensorData);
+        createOrUpdateCard(g1, "Precense", "", "pir", sensorData);
+        createOrUpdateCard(g2, "Water Level", "%", "lvl", sensorData);
+        createOrUpdateCard(g3, "Temperature", "°C", "tmp", sensorData);
+        createOrUpdateCard(g3, "Humidity", "%", "hum", sensorData);
+
+        // Save the timestamp if it exists
+        updateTime = sensorData.timestamp;
+      }
+
+      // Fetch actuator data
+      const actuatorData = await fetchData("actuators");
+      if (actuatorData) {
+        console.log("Updating actuator data:", actuatorData);
+        createOrUpdateCard(g1, "Lamp", "", "lmp", actuatorData);
+        createOrUpdateCard(g2, "Pump", "", "pmp", actuatorData);
+        createOrUpdateCard(g2, "Fault", "", "flt", actuatorData);
+      }
+
+      // Update status text
+      const statusIcon = document.getElementById("status-icon");
+      const statusText = document.getElementById("status-text");
+
+      if (updateTime) {
+        const date = new Date(updateTime);
+        const now = new Date();
+        const elapsedMinutes = (now - date) / (1000 * 60); // Calculate elapsed time in minutes
+
+        if (elapsedMinutes > 3) {
+          // If more than 3 minutes have passed since the last update
+          statusText.textContent = "Device connection error: Displaying last received data.";
+          status.style.color = "#ff8888";
+          statusIcon.className = "fas fa-exclamation-triangle";
+          statusIcon.style.color = "#ff5555"; // Red
+        } else {
+          // If the last update was within 3 minutes
+          statusText.textContent = `Last Update: ${date.toLocaleString()}`;
+          status.style.color = "#aaa";
+          statusIcon.className = "fas fa-check-circle";
+          statusIcon.style.color = "#90ee90"; // Green
+        }
+      } else {
+        // If no update time is available
+        statusText.textContent = "Server/Internet connection error: Check server is running or WiFi connection.";
+        status.style.color = "#ff8888";
+        statusIcon.className = "fas fa-exclamation-triangle";
+        statusIcon.style.color = "#ff5555"; // Red
+      }
+    }
+
+    window.addEventListener("load", () => {
+      updateDashboard();
+      setInterval(updateDashboard, 5000);
+    });
+  </script>
+<div id="status" style="text-align:center; margin-top: 20px; font-size: 14px; color: #aaa;">
+  <i id="status-icon" class="fas fa-info-circle" style="margin-right: 5px;"></i>
+  <span id="status-text">Last Update: No data received yet.</span>
+</div>
+</body>
+</html>
