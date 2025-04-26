@@ -49,20 +49,32 @@
       background-color: #333;
       border-radius: 10px;
       padding: 15px;
-      margin-bottom: 15px;
-      text-align: center;
+      margin: 15px auto;
+      text-align: center; /* Center text horizontally */
       transition: all 0.3s ease-in-out;
       color: #f0f0f0;
+      max-width: 250px;
+      display: flex; /* Use flexbox for vertical alignment */
+      flex-direction: column; /* Stack items vertically */
+      justify-content: center; /* Center items vertically */
+      align-items: center; /* Center items horizontally */
+      height: 200px; /* Set a fixed height for consistent alignment */
+    }
+
+    .card i {
+      display: block;
+      font-size: 40px; /* Adjust icon size */
+      margin-bottom: 10px; /* Add spacing below the icon */
     }
 
     .card h3 {
       margin: 5px 0;
-      font-size: 16px;
+      font-size: 18px; /* Adjust font size for the title */
     }
 
     .card p {
       margin: 8px 0 0;
-      font-size: 28px;
+      font-size: 24px; /* Adjust font size for the value */
       font-weight: bold;
     }
 
@@ -71,13 +83,7 @@
       color: #aaa;
     }
 
-    .card i {
-      display: block;
-      font-size: 30px;
-      margin-bottom: 10px;
-    }
-
-    /* Animación de cambio */
+    /** Animation for value change */
     .flash {
       animation: flash-bg 0.8s ease-in-out;
     }
@@ -86,6 +92,60 @@
       0% { background-color: #444; }
       50% { background-color: #00ff8840; }
       100% { background-color: #333; }
+    }
+  </style>
+  <style>
+    .card {
+      background-color: transparent;
+      width: 100%;
+      height: 200px;
+      perspective: 1000px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.8s;
+      transform-style: preserve-3d;
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      backface-visibility: hidden;
+      padding: 15px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .card-front {
+      background-color: #333;
+      color: white;
+    }
+
+    .card-back {
+      background-color: #2a2a3b;
+      color: #f0f0f0;
+      transform: rotateY(180deg);
+      overflow-y: auto;
+    }
+
+    .history-item {
+      font-size: 14px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 4px;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
     }
   </style>
 </head>
@@ -105,6 +165,18 @@
 
   <script>
     const apiUrl = "http://192.168.100.9:3000/getLastData";
+
+    const historyData = {
+      ldr: [],
+      pir: [],
+      lvl: [],
+      tmp: [],
+      hum: [],
+      lmp: [],
+      flt: [],
+      pmp: [],
+      irr: []
+    };
 
     async function fetchData(type) {
       try {
@@ -131,7 +203,10 @@
           ? '<i class="fas fa-faucet" style="color:lightblue;"></i>'
           : '<i class="fas fa-faucet" style="color:gray;"></i>';
         case "Sensor Fault": return value === "YES" ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
-        case "Irrigation": return value === "ON" ? '<i class="fas fa-tint" style="color:#5bc0de;"></i>' : '<i class="fas fa-tint" style="color:gray;"></i>';
+        case "Irrigation": 
+          return value === "ON" 
+            ? '<i class="fas fa-cloud-showers-water" style="color:#5bc0de;"></i>' 
+            : '<i class="fas fa-cloud-showers-water" style="color:gray;"></i>';
         default: return '<i class="fas fa-microchip"></i>';
       }
     }
@@ -140,7 +215,6 @@
       const id = `card-${key}`;
       let card = document.getElementById(id);
 
-      // Interpret the value based on the key
       const value = data[key] !== undefined
         ? key === "ldr" ? (data[key] === "1" ? "Dark" : "Light")
         : key === "pir" ? (data[key] === "0" ? "None" : "Detected")
@@ -151,19 +225,42 @@
         : data[key]
         : "N/A";
 
+      /** Save to history */
+      if (data.timestamp) {
+        historyData[key].push({ 
+          timestamp: data.timestamp, 
+          value: value, 
+          unit: unit 
+        });
+
+        /** Keep only the last 60 entries */
+        if (historyData[key].length > 60) {
+          historyData[key].shift(); 
+        }
+      }
+
       if (!card) {
-        // Create a new card if it doesn't exist
+        /** Create a new card */
         card = document.createElement("div");
         card.className = "card";
         card.id = id;
+        card.onclick = () => flipCard(card, key);
         card.innerHTML = `
-          ${getIcon(title, value)}
-          <h3>${title}</h3>
-          <p><span class="value">${value}</span> <span>${unit}</span></p>
+          <div class="card-inner">
+            <div class="card-front">
+              ${getIcon(title, value)}
+              <h3>${title}</h3>
+              <p><span class="value">${value}</span> <span>${unit}</span></p>
+            </div>
+            <div class="card-back">
+              <h4>History</h4>
+              <div class="history-list" style="margin-top:10px;"></div>
+            </div>
+          </div>
         `;
         groupEl.appendChild(card);
       } else {
-        // Update the card if it already exists
+        /** Update value in existing card */
         const valueEl = card.querySelector(".value");
         const oldValue = valueEl.textContent;
         if (oldValue !== value) {
@@ -175,6 +272,35 @@
       }
     }
 
+    function flipCard(card, key) {
+      card.classList.toggle('flipped');
+
+      if (card.classList.contains('flipped')) {
+        const historyList = card.querySelector('.history-list');
+        historyList.innerHTML = "";
+
+        /** Filter to remove duplicate timestamps */
+        const seenTimestamps = new Set();
+        const uniqueHistory = [...historyData[key]].reverse().filter(item => {
+          if (seenTimestamps.has(item.timestamp)) {
+            return false; /** Already seen */
+          } else {
+            seenTimestamps.add(item.timestamp);
+            return true; /** First occurrence */
+          }
+        });
+
+        uniqueHistory.forEach(item => {
+          const date = new Date(item.timestamp);
+          const formattedDate = date.toLocaleString();
+          const div = document.createElement('div');
+          div.className = "history-item";
+          div.textContent = `${formattedDate}: ${item.value} ${item.unit}`;
+          historyList.appendChild(div);
+        });
+      }
+    }
+
     async function updateDashboard() {
       const g1 = document.getElementById("group1");
       const g2 = document.getElementById("group2");
@@ -183,7 +309,7 @@
 
       let updateTime = null;
 
-      // Fetch sensor data
+      /** Fetch sensor data */
       const sensorData = await fetchData("sensors");
       if (sensorData) {
         console.log("Updating sensor data:", sensorData);
@@ -193,11 +319,11 @@
         createOrUpdateCard(g3, "Temperature", "°C", "tmp", sensorData);
         createOrUpdateCard(g3, "Humidity", "%", "hum", sensorData);
 
-        // Save the timestamp if it exists
+        /** Save the timestamp if it exists */
         updateTime = sensorData.timestamp;
       }
 
-      // Fetch actuator data
+      /** Fetch actuator data */
       const actuatorData = await fetchData("actuators");
       if (actuatorData) {
         console.log("Updating actuator data:", actuatorData);
@@ -207,34 +333,34 @@
         createOrUpdateCard(g3, "Irrigation", "", "irr", actuatorData); 
       }
 
-      // Update status text
+      /** Update status text */
       const statusIcon = document.getElementById("status-icon");
       const statusText = document.getElementById("status-text");
 
       if (updateTime) {
         const date = new Date(updateTime);
         const now = new Date();
-        const elapsedMinutes = (now - date) / (1000 * 60); // Calculate elapsed time in minutes
+        const elapsedMinutes = (now - date) / (1000 * 60); /** Calculate elapsed time in minutes */
 
         if (elapsedMinutes > 3) {
-          // If more than 3 minutes have passed since the last update
+          /** If more than 3 minutes have passed since the last update */
           statusText.textContent = "Device connection error: Displaying last received data.";
           status.style.color = "#ff8888";
           statusIcon.className = "fas fa-exclamation-triangle";
-          statusIcon.style.color = "#ff5555"; // Red
+          statusIcon.style.color = "#ff5555"; /** Red */
         } else {
-          // If the last update was within 3 minutes
+          /** If the last update was within 3 minutes */
           statusText.textContent = `Last Update: ${date.toLocaleString()}`;
           status.style.color = "#aaa";
           statusIcon.className = "fas fa-check-circle";
-          statusIcon.style.color = "#90ee90"; // Green
+          statusIcon.style.color = "#90ee90"; /** Green */
         }
       } else {
-        // If no update time is available
+        /** If no update time is available */
         statusText.textContent = "Server/Internet connection error: Check server is running or WiFi connection.";
         status.style.color = "#ff8888";
         statusIcon.className = "fas fa-exclamation-triangle";
-        statusIcon.style.color = "#ff5555"; // Red
+        statusIcon.style.color = "#ff5555"; /** Red */
       }
     }
 

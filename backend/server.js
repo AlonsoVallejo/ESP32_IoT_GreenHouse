@@ -73,7 +73,7 @@ app.get("/", (req, res) => {
   res.send("Firebase Server is Running!");
 });
 
-app.post("/updateData", (req, res) => {
+app.post("/updateData", async (req, res) => {
   const sensorData = req.body;
 
   if (!sensorData || Object.keys(sensorData).length === 0) {
@@ -104,12 +104,26 @@ app.post("/updateData", (req, res) => {
 
   const dbRef = sensorData.type === "actuators" ? "actuatorData" : "sensorData";
   if (db) {
-    db.ref(dbRef).push(preparedData, (error) => {
-      if (error) {
-        return res.status(500).send({ error: "Error saving data to Firebase" });
+    try {
+      // Add the new data
+      const newEntryRef = await db.ref(dbRef).push(preparedData);
+
+      // Cleanup old data if more than 60 entries exist
+      const snapshot = await db.ref(dbRef).orderByKey().once("value");
+      const entries = snapshot.val();
+
+      if (entries && Object.keys(entries).length > 60) {
+        const keysToDelete = Object.keys(entries).slice(0, Object.keys(entries).length - 60); // Oldest keys
+        keysToDelete.forEach(async (key) => {
+          await db.ref(`${dbRef}/${key}`).remove();
+        });
       }
+
       res.send({ message: "Data stored successfully!" });
-    });
+    } catch (error) {
+      console.error("Error saving data:", error);
+      res.status(500).send({ error: "Error saving data to Firebase" });
+    }
   } else {
     res.status(500).send({ error: "Firebase is not initialized." });
   }
@@ -138,6 +152,35 @@ app.get("/getLastData", async (req, res) => {
     } catch (error) {
       console.error("Error fetching data:", error);
       res.status(500).send({ error: "Error fetching data from Firebase." });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
+app.get("/getHistoryData", async (req, res) => {
+  const { type } = req.query;
+
+  if (!type || (type !== "sensors" && type !== "actuators")) {
+    return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
+  }
+
+  const dbRef = type === "actuators" ? "actuatorData" : "sensorData";
+
+  if (db) {
+    try {
+      const snapshot = await db.ref(dbRef).orderByKey().limitToLast(60).once("value");
+      const data = snapshot.val();
+
+      if (data) {
+        const dataList = Object.values(data);
+        res.send(dataList.reverse()); // Opcional: para mostrar de más reciente a más viejo
+      } else {
+        res.status(404).send({ error: "No data found." });
+      }
+    } catch (error) {
+      console.error("Error fetching history data:", error);
+      res.status(500).send({ error: "Error fetching history data from Firebase." });
     }
   } else {
     res.status(500).send({ error: "Firebase is not initialized." });
