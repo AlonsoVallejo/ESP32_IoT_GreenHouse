@@ -1,0 +1,140 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #1e1e2f;
+    color: #f0f0f0;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 30px;
+    color: #90ee90;
+  }
+
+  .container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 30px;
+  }
+
+  .group {
+    background-color: #2a2a3b;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 260px;
+  }
+
+  .group h2 {
+    margin-top: 0;
+    font-size: 18px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+    color: #ffffffcc;
+  }
+
+  .card {
+    background-color: #333;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 15px auto;
+    text-align: center; /* Center text horizontally */
+    transition: all 0.3s ease-in-out;
+    color: #f0f0f0;
+    max-width: 250px;
+    display: flex; /* Use flexbox for vertical alignment */
+    flex-direction: column; /* Stack items vertically */
+    justify-content: center; /* Center items vertically */
+    align-items: center; /* Center items horizontally */
+    height: 200px; /* Set a fixed height for consistent alignment */
+  }
+
+  .card i {
+    display: block;
+    font-size: 40px; /* Adjust icon size */
+    margin-bottom: 10px; /* Add spacing below the icon */
+  }
+
+  .card h3 {
+    margin: 5px 0;
+    font-size: 18px; /* Adjust font size for the title */
+  }
+
+  .card p {
+    margin: 8px 0 0;
+    font-size: 24px; /* Adjust font size for the value */
+    font-weight: bold;
+  }
+
+  .card span {
+    font-size: 16px;
+    color: #aaa;
+  }
+
+  /** Animation for value change */
+  .flash {
+    animation: flash-bg 0.8s ease-in-out;
+  }
+
+  @keyframes flash-bg {
+    0% { background-color: #444; }
+    50% { background-color: #00ff8840; }
+    100% { background-color: #333; }
+  }
+
+  .card {
+    background-color: transparent;
+    width: 100%;
+    height: 200px;
+    perspective: 1000px;
+  }
+
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+  }
+
+  .card.flipped .card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .card-front, .card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+    backface-visibility: hidden;
+    padding: 15px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .card-front {
+    background-color: #333;
+    color: white;
+  }
+
+  .card-back {
+    background-color: #2a2a3b;
+    color: #f0f0f0;
+    transform: rotateY(180deg);
+    overflow-y: auto;
+  }
+
+  .history-item {
+    font-size: 14px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 4px;
+  }
+
+  .history-item:last-child {
+    border-bottom: none;
+  }

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GreenHouse Monitoring System</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+  <h1>🌱 GreenHouse Monitoring System</h1>
+  <div class="container">
+    <div class="group" id="group1">
+      <h2>🔆 Light, PIR & Lamp</h2>
+    </div>
+    <div class="group" id="group2">
+      <h2>💧 Water, Fault & Pump</h2>
+    </div>
+    <div class="group" id="group3">
+      <h2>🌡️ Temperature & Humidity</h2>
+    </div>
+  </div>
+  <div id="status" style="text-align:center; margin-top: 20px; font-size: 14px; color: #aaa;">
+    <i id="status-icon" class="fas fa-info-circle" style="margin-right: 5px;"></i>
+    <span id="status-text">Last Update: No data received yet.</span>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
