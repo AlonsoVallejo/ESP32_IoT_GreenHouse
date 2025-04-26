@@ -17,16 +17,24 @@ void dth11Sensor::dhtSensorInit() {
 
 /**
  * @brief Reads the temperature from the DHT11 sensor.
- * @return Temperature in degrees Celsius as a float. Returns NAN if the value is invalid.
+ * @return Temperature in degrees Celsius as a float. Returns a default value if the value is invalid.
  */
 float dth11Sensor::readTemperature() {
-    return TempHumSens.getTemperature();
+    float temperature = TempHumSens.getTemperature();
+    if (isnan(temperature)) {
+        return -1.0; // Default value for invalid temperature
+    }
+    return temperature;
 }
 
 /**
  * @brief Reads the humidity from the DHT11 sensor.
- * @return Humidity percentage as a float. Returns NAN if the value is invalid.
+ * @return Humidity percentage as a float. Returns a default value if the value is invalid.
  */
 float dth11Sensor::readHumidity() {
-    return TempHumSens.getHumidity();
+    float humidity = TempHumSens.getHumidity();
+    if (isnan(humidity)) {
+        return -1.0; // Default value for invalid humidity
+    }
+    return humidity;
 }

@@ -8,14 +8,15 @@
 
 using namespace std;
 
-#define SENSOR_LVL_PIN        (SHIELD_POTENTIOMETER_VP)
-#define SENSOR_HUM_TEMP_PIN   (SHIELD_DAC1_D25)
-#define SENSOR_LDR_PIN        (SHIELD_PUSHB3_D34) 
-#define SENSOR_PIR_PIN        (SHIELD_DHT11_D13)
-#define SENSOR_PBSELECTOR_PIN (SHIELD_PUSHB2_D35)
-#define ACTUATOR_LED_PWM_PIN  (SHIELD_LED4_D14)
-#define ACTUATOR_RELAY1_PIN   (SHIELD_RELAY1_D4)
-#define ACTUATOR_RELAY2_PIN   (SHIELD_RELAY2_D2)
+#define SENSOR_LVL_PIN          (SHIELD_POTENTIOMETER_VP)
+#define SENSOR_HUM_TEMP_PIN     (SHIELD_DAC1_D25)
+#define SENSOR_LDR_PIN          (SHIELD_PUSHB3_D34) 
+#define SENSOR_PIR_PIN          (SHIELD_DHT11_D13)
+#define SENSOR_PBSELECTOR_PIN   (SHIELD_PUSHB2_D35)
+#define ACTUATOR_LED_FAULT_PIN  (SHIELD_LED4_D14)
+#define ACTUATOR_IRRIGATOR_PIN  (SHIELD_RELAY1_D4)
+#define ACTUATOR_PUMP_PIN       (SHIELD_RELAY2_D2)
+#define ACTUATOR_LAMP_PIN       (SHIELD_LED3_D12)
 
 #define SUBTASK_INTERVAL_100_MS  (100)
 #define SUBTASK_INTERVAL_500_MS  (500)
@@ -23,20 +24,21 @@ using namespace std;
 #define SUBTASK_INTERVAL_3_S     (3000)  
 #define SUBTASK_INTERVAL_30_S    (30000)  
 
-#define SENSOR_LVL_OPENCKT_V (3975) // ADC value for open circuit
-#define SENSOR_LVL_STG_V     (124)  // ADC value for short circuit
+#define SENSOR_LVL_OPENCKT_V   (3975) // ADC value for open circuit
+#define SENSOR_LVL_STG_V       (124)  // ADC value for short circuit
 #define SENSOR_LVL_THRESHOLD_V (50) // ADC Threshold for level sensor
 
 #define MAX_LVL_PERCENTAGE (90) 
 #define MIN_LVL_PERCENTAGE (20) 
 
-#define SENSOR_MAX_TEMP_C (50)
+#define SENSOR_HOT_TEMP_C   (30)
+#define SENSOR_LOW_HUMIDITY (15) 
 
 #define SENSOR_LVL_FAIL_OPEN  (0xFFFF)
 #define SENSOR_LVL_FAIL_SHORT (0x0000)
 
-#define LED_NO_FAIL_INDICATE     (0x00) 
-#define LED_FAIL_INDICATE        (0x01) 
+#define LED_NO_FAIL_INDICATE (0x00) 
+#define LED_FAIL_INDICATE    (0x01) 
 
 #define SENSOR_PIR_COOL_DOWN_TIME (5000) 
 
@@ -48,8 +50,8 @@ const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz sig
 const char* password = "3kK4H6W48P";
 
 enum pb1Selector{
-  PB1_SELECT_DATA1, /* Display light, Pir and relay1 data */
-  PB1_SELECT_DATA2, /* Display level and relay2 data */
+  PB1_SELECT_DATA1, /* Display light, Pir and Lamp data */
+  PB1_SELECT_DATA2, /* Display level and PUMP data */
   PB1_SELECT_DATA3, /* Display temperature and humidity data */
   PB1_SELECT_DATA4, /* Display wifi status */
 };
@@ -65,8 +67,9 @@ struct SystemData {
   DigitalSensor* buttonSelector;
   /* Object Actuators */
   Actuator* ledInd;
-  Actuator* relay1;
-  Actuator* relay2;
+  Actuator* irrigator;
+  Actuator* pump;
+  Actuator* lamp;
   /* Object display */
   OledDisplay* oledDisplay;
   /* Object client */
@@ -123,60 +126,60 @@ void TaskProcessData(void* pvParameters) {
     for (;;) {
       unsigned long currentMillis = millis();
 
-      /* Handle relay1 activation logic */
+      /* Handle Lamp activation logic */
       bool lightState = data->lightSensor->getSensorValue();
       bool pirState = data->pirSensor->getSensorValue();
-      bool relayState = data->relay1->getOutstate();
+      bool lampState = data->lamp->getOutstate();
 
-      /* If PIR detects presence, activate relay immediately */
       if (pirState) {
+        /* If PIR detects presence, activate Lamp immediately */
         presenceDetected = true;
         pirWentLow = false; /** Reset cooldown tracking */
-        data->relay1->SetOutState(true);
+        data->lamp->SetOutState(true);
         lastPirTriggerTime = currentMillis; /** Reset PIR cooldown timer */
-      } else if (lightState && !relayState) {
-         /* If it's dark AND relay is OFF, activate relay */
-        data->relay1->SetOutState(true);
+      } else if (lightState && !lampState) {
+         /* If it's dark AND Lamp is OFF, activate Lamp */
+        data->lamp->SetOutState(true);
       } else if (!lightState && !presenceDetected) { 
-        /* If light sensor detects LIGHT and PIR is NOT detecting presence, turn relay OFF immediately */
+        /* If light sensor detects LIGHT and PIR is NOT detecting presence, turn Lamp OFF immediately */
         presenceDetected = false;
         pirWentLow = false;
-        data->relay1->SetOutState(false);
+        data->lamp->SetOutState(false);
       } else if (!pirState && presenceDetected && !pirWentLow) {
         /* If PIR stopped detecting presence, start cooldown */
         pirWentLow = true;
         lastPirTriggerTime = currentMillis;
       } else if (pirWentLow && (currentMillis - lastPirTriggerTime >= SENSOR_PIR_COOL_DOWN_TIME)) { 
-         /* If PIR has been LOW for cooldown time, only turn relay OFF if light sensor does NOT require it to stay ON */
+         /* If PIR has been LOW for cooldown time, only turn Lamp OFF if light sensor does NOT require it to stay ON */
         presenceDetected = false;
         pirWentLow = false;
-        /* Only turn relay OFF if light sensor reports brightness */
+        /* Only turn Lamp OFF if light sensor reports brightness */
         if (!lightState) {
-          data->relay1->SetOutState(false);
+          data->lamp->SetOutState(false);
         }
       } else {
 
       }
 
-      /* Handle relay2 activation logic */
+      /* Handle pump activation logic */
       uint16_t levelValue = data->levelSensor->getSensorValue();
       uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) / 
                                 ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
-      static bool relay2State = false;
+      static bool pumpState = false;
       
       /** Check if the level sensor value is in an invalid range */
       if (levelValue >= SENSOR_LVL_OPENCKT_V || levelValue <= SENSOR_LVL_STG_V) {
-        /** Sensor failure detected—turn relay OFF to prevent misactivation */
+        /** Sensor failure detected—turn Pump OFF to prevent misactivation */
         data->ledInd->SetOutState(LED_FAIL_INDICATE);
-        relay2State = false;
+        pumpState = false;
       } else {
         data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
         if (levelPercentage <= MIN_LVL_PERCENTAGE) {
-          /* Activate relay2 when level percentage is low */
-          relay2State = true;
+          /* Activate pump when level percentage is low */
+          pumpState = true;
         } else if (levelPercentage >= MAX_LVL_PERCENTAGE) {
-          /* Deactivate relay2 when level percentage has reach the max*/
-          relay2State = false;
+          /* Deactivate pump when level percentage has reach the max*/
+          pumpState = false;
         } else {
           /* Do nothing */
         }
@@ -185,15 +188,37 @@ void TaskProcessData(void* pvParameters) {
         levelPercentage = 100; // Ensure level percentage does not exceed 100%
       } 
 
+      /** Apply pump state */
+      data->pump->SetOutState(pumpState); 
+
+      /* Irrigator Control */
+      double temperature = data->tempHumSensor->getTemperature();
+      double humidity = data->tempHumSensor->getHumidity();
+
+      /* Add hysteresis to prevent frequent toggling */
+      static bool irrigatorState = false;
+
+      // Check for valid temperature and humidity values
+      if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100) {
+          if (temperature >= SENSOR_HOT_TEMP_C && humidity <= SENSOR_LOW_HUMIDITY) {
+              if (!irrigatorState) {
+                  data->irrigator->SetOutState(true); 
+                  irrigatorState = true;
+              }
+          } else if (temperature < SENSOR_HOT_TEMP_C - 2 || humidity > SENSOR_LOW_HUMIDITY + 5) {
+              if (irrigatorState) {
+                  data->irrigator->SetOutState(false);
+                  irrigatorState = false;
+              }
+          }
+      } 
+      
       /** Protect shared variable access */
       if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
           data->PirPresenceDetected = presenceDetected;
           data->levelPercentage = levelPercentage;
           xSemaphoreGive(xSystemDataMutex);
       }
-
-      /** Apply relay2 state */
-      data->relay2->SetOutState(relay2State); 
 
       vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
     }
@@ -219,11 +244,14 @@ void TaskControlActuators(void* pvParameters) {
       data->ledInd->setActuatorState(LOW);
     }
 
-    /* Update relay activation */
-    data->relay1->setActuatorState(data->relay1->getOutstate());
+    /* Update Irrigator activation */
+    data->irrigator->setActuatorState(data->irrigator->getOutstate());
 
-    /* Update relay2 activation */
-    data->relay2->setActuatorState(data->relay2->getOutstate());
+    /* Update pump activation */
+    data->pump->setActuatorState(data->pump->getOutstate());
+
+    /* Update lamp activation */
+    data->lamp->setActuatorState(data->lamp->getOutstate());
 
     vTaskDelay(pdMS_TO_TICKS(100)); // Update actuators every 100ms
   }
@@ -245,7 +273,7 @@ void TaskDisplay(void* pvParameters) {
               data->oledDisplay->SetdisplayData(80, 10, data->PirPresenceDetected ? "YES" : "NO");
 
               data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
-              data->oledDisplay->SetdisplayData(80, 20, data->relay1->getOutstate() ? "ON" : "OFF");
+              data->oledDisplay->SetdisplayData(80, 20, data->lamp->getOutstate() ? "ON" : "OFF");
           break;
 
           case PB1_SELECT_DATA2:
@@ -263,7 +291,7 @@ void TaskDisplay(void* pvParameters) {
                     data->oledDisplay->SetdisplayData(105, 0, "%");
                 }
                 data->oledDisplay->SetdisplayData(0,  10, "Pump: ");
-                data->oledDisplay->SetdisplayData(80, 10, data->relay2->getOutstate() ? "ON" : "OFF");
+                data->oledDisplay->SetdisplayData(80, 10, data->pump->getOutstate() ? "ON" : "OFF");
                 data->oledDisplay->SetdisplayData(0,  20, " ");
                 data->oledDisplay->SetdisplayData(80, 20, " ");
           break;
@@ -277,8 +305,8 @@ void TaskDisplay(void* pvParameters) {
               data->oledDisplay->SetdisplayData(80,  10, data->tempHumSensor->getHumidity());
               data->oledDisplay->SetdisplayData(105, 10, "%");
 
-              data->oledDisplay->SetdisplayData(0,   20, " ");
-              data->oledDisplay->SetdisplayData(80,  20, " ");
+              data->oledDisplay->SetdisplayData(0,   20, "Irrigator: ");
+              data->oledDisplay->SetdisplayData(80,  20, data->irrigator->getOutstate() ? "ON" : "OFF");
           break;
 
           case PB1_SELECT_DATA4:
@@ -289,14 +317,15 @@ void TaskDisplay(void* pvParameters) {
           break;
       }
 
-      Serial.print("Level: " + String(data->levelPercentage) + "%");
-      Serial.print(" Temperature: " + String(data->tempHumSensor->getTemperature()) + "C");
-      Serial.print(" Humidity: " + String(data->tempHumSensor->getHumidity()) + "%");
-      Serial.print(" Light: " + String(data->lightSensor->getSensorValue()));
+      Serial.print("Lvl: " + String(data->levelPercentage) + "%");
+      Serial.print(" Temp: " + String(data->tempHumSensor->getTemperature()) + "C");
+      Serial.print(" Hum: " + String(data->tempHumSensor->getHumidity()) + "%");
+      Serial.print(" ldr: " + String(data->lightSensor->getSensorValue()));
       Serial.print(" PIR: " + String(data->PirPresenceDetected));
-      Serial.print(" Lamp: " + String(data->relay1->getOutstate()));
-      Serial.print(" Pump: " + String(data->relay2->getOutstate()));
-      Serial.println(" Fault: " + String(data->ledInd->getOutstate()));
+      Serial.print(" lamp: " + String(data->lamp->getOutstate()));
+      Serial.print(" Pump: " + String(data->pump->getOutstate()));
+      Serial.print(" lvlFlt: " + String(data->ledInd->getOutstate()));
+      Serial.println(" Irgtr: " + String(data->irrigator->getOutstate()));
 
       data->oledDisplay->PrintdisplayData();
 
@@ -336,9 +365,10 @@ void TaskSendDataToServer(void* pvParameters) {
 
                 Serial.println("Sending Actuators data to server...");
                 data->client->prepareData("type", "actuators");
-                data->client->prepareData("lmp", String(data->relay1->getOutstate()));
-                data->client->prepareData("pmp", String(data->relay2->getOutstate()));
+                data->client->prepareData("lmp", String(data->lamp->getOutstate()));
+                data->client->prepareData("pmp", String(data->pump->getOutstate()));
                 data->client->prepareData("flt", String(data->ledInd->getOutstate()));
+                data->client->prepareData("irr", String(data->irrigator->getOutstate()));
                 data->client->sendPayload();
             }
         } else {
@@ -394,9 +424,10 @@ void setup() {
         new DigitalSensor(SENSOR_LDR_PIN),
         new DigitalSensor(SENSOR_PBSELECTOR_PIN),
         /* Actuators */
-        new Actuator(ACTUATOR_LED_PWM_PIN),
-        new Actuator(ACTUATOR_RELAY1_PIN),
-        new Actuator(ACTUATOR_RELAY2_PIN),
+        new Actuator(ACTUATOR_LED_FAULT_PIN),
+        new Actuator(ACTUATOR_IRRIGATOR_PIN),
+        new Actuator(ACTUATOR_PUMP_PIN),
+        new Actuator(ACTUATOR_LAMP_PIN),
         /* Display */
         new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
         /* Client */

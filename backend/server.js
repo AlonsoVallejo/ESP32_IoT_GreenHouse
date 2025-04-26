@@ -92,6 +92,7 @@ app.post("/updateData", (req, res) => {
     lmp: sensorData.lmp !== undefined ? sensorData.lmp : null,
     pmp: sensorData.pmp !== undefined ? sensorData.pmp : null,
     flt: sensorData.flt !== undefined ? sensorData.flt : null,
+    irr: sensorData.irr !== undefined ? sensorData.irr : null,
     timestamp: timestampCST,
   };
 

@@ -119,7 +119,6 @@
       }
     }
 
-
     function getIcon(title, value) {
       switch (title) {
         case "Temperature": return '<i class="fas fa-thermometer-half"></i>';
@@ -131,7 +130,8 @@
         case "Pump": return value === "ON"
           ? '<i class="fas fa-faucet" style="color:lightblue;"></i>'
           : '<i class="fas fa-faucet" style="color:gray;"></i>';
-        case "Fault": return value === "YES" ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
+        case "Sensor Fault": return value === "YES" ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
+        case "Irrigation": return value === "ON" ? '<i class="fas fa-tint" style="color:#5bc0de;"></i>' : '<i class="fas fa-tint" style="color:gray;"></i>';
         default: return '<i class="fas fa-microchip"></i>';
       }
     }
@@ -147,6 +147,7 @@
         : key === "pmp" ? (data[key] === "0" ? "OFF" : "ON")
         : key === "flt" ? (data[key] === "0" ? "NO" : "YES")
         : key === "lmp" ? (data[key] === "1" ? "ON" : "OFF")
+        : key === "irr" ? (data[key] === "1" ? "ON" : "OFF")
         : data[key]
         : "N/A";
 
@@ -201,8 +202,9 @@
       if (actuatorData) {
         console.log("Updating actuator data:", actuatorData);
         createOrUpdateCard(g1, "Lamp", "", "lmp", actuatorData);
+        createOrUpdateCard(g2, "Sensor Fault", "", "flt", actuatorData);
         createOrUpdateCard(g2, "Pump", "", "pmp", actuatorData);
-        createOrUpdateCard(g2, "Fault", "", "flt", actuatorData);
+        createOrUpdateCard(g3, "Irrigation", "", "irr", actuatorData); 
       }
 
       // Update status text
