@@ -21,8 +21,8 @@ using namespace std;
 #define SUBTASK_INTERVAL_100_MS  (100)
 #define SUBTASK_INTERVAL_500_MS  (500)
 #define SUBTASK_INTERVAL_1000_MS (1000)     
-#define SUBTASK_INTERVAL_3_S     (3000)  
-#define SUBTASK_INTERVAL_30_S    (30000)  
+#define SUBTASK_INTERVAL_2_S     (2000)  
+#define SUBTASK_INTERVAL_15_S    (15000)  
 
 #define SENSOR_LVL_OPENCKT_V   (3975) // ADC value for open circuit
 #define SENSOR_LVL_STG_V       (124)  // ADC value for short circuit
@@ -107,7 +107,7 @@ void TaskReadSensors(void* pvParameters) {
         }
 
         /* Read temperature and humidity */
-        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_3_S) {
+        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2_S) {
             lastTempHumReadTime = currentMillis;
             double temperature = data->tempHumSensor->readValueTemperature();
             double humidity = data->tempHumSensor->readValueHumidity();
@@ -158,7 +158,7 @@ void TaskProcessData(void* pvParameters) {
           data->lamp->SetOutState(false);
         }
       } else {
-
+        /* Do nothing */
       }
 
       /* Handle pump activation logic */
@@ -340,37 +340,37 @@ void TaskSendDataToServer(void* pvParameters) {
 
     for (;;) {
         if (data->client->IsWiFiConnected()) {
-            wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
-            unsigned long currentMillis = millis();
-            static unsigned long lastSendTime = 0;
-            
-            if (!wifiConnectedMessagePrinted) {
-              Serial.print("WiFi connected! ESP32 IP Address: ");
-              Serial.println(data->client->getWiFiLocalIp());
-              wifiConnectedMessagePrinted = true; 
-            }
+          wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
+          unsigned long currentMillis = millis();
+          static unsigned long lastSendTime = 0;
+          
+          if (!wifiConnectedMessagePrinted) {
+            Serial.print("WiFi connected! ESP32 IP Address: ");
+            Serial.println(data->client->getWiFiLocalIp());
+            wifiConnectedMessagePrinted = true; 
+          }
 
-            /* Send data to Firebase server */
-            if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_30_S) {
-                lastSendTime = currentMillis;
+          /* Send data to Firebase server */
+          if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_15_S) {
+            lastSendTime = currentMillis;
 
-                Serial.println("Sending Sensor data to server...");
-                data->client->prepareData("type", "sensors");
-                data->client->prepareData("lvl", String(data->levelPercentage));
-                data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
-                data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
-                data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
-                data->client->prepareData("pir", String(data->PirPresenceDetected));
-                data->client->sendPayload();
+            Serial.println("Sending Sensor data to server...");
+            data->client->prepareData("type", "sensors");
+            data->client->prepareData("lvl", String(data->levelPercentage));
+            data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
+            data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
+            data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
+            data->client->prepareData("pir", String(data->PirPresenceDetected));
+            data->client->sendPayload();
 
-                Serial.println("Sending Actuators data to server...");
-                data->client->prepareData("type", "actuators");
-                data->client->prepareData("lmp", String(data->lamp->getOutstate()));
-                data->client->prepareData("pmp", String(data->pump->getOutstate()));
-                data->client->prepareData("flt", String(data->ledInd->getOutstate()));
-                data->client->prepareData("irr", String(data->irrigator->getOutstate()));
-                data->client->sendPayload();
-            }
+            Serial.println("Sending Actuators data to server...");
+            data->client->prepareData("type", "actuators");
+            data->client->prepareData("lmp", String(data->lamp->getOutstate()));
+            data->client->prepareData("pmp", String(data->pump->getOutstate()));
+            data->client->prepareData("flt", String(data->ledInd->getOutstate()));
+            data->client->prepareData("irr", String(data->irrigator->getOutstate()));
+              data->client->sendPayload();
+          }
         } else {
             wifiConnectedMessagePrinted = false; /* Reset the flag when WiFi is disconnected */ 
             if (!wifiConnecting) {

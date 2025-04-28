@@ -69,9 +69,9 @@ uint16_t TemperatureHumiditySensor::readRawValue() {
 double TemperatureHumiditySensor::readValueHumidity() {
     double humidity = dth11Sensor::readHumidity();
     if (humidity < 0) { // Check for default invalid value
-        humidity = 999.0; // Fallback value for humidity
+        return this->humidity; // Return last valid humidity
     }
-    this->humidity = humidity;
+    this->humidity = humidity; // Store the new humidity
     return humidity;
 }
 
@@ -82,9 +82,9 @@ double TemperatureHumiditySensor::readValueHumidity() {
 double TemperatureHumiditySensor::readValueTemperature() {
     double temperature = dth11Sensor::readTemperature();
     if (temperature < 0) { // Check for default invalid value
-        temperature = 999.0; // Fallback value for temperature
+        return this->temperature; // Return last valid temperature
     }
-    this->temperature = temperature;
+    this->temperature = temperature; // Store the new temperature 
     return temperature;
 }
 
