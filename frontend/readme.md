@@ -1,3 +1,6 @@
+
+---
+
 # ESP32 IoT Greenhouse Monitoring System - Frontend
 
 This project is the frontend for the ESP32 IoT Greenhouse Monitoring System. It is designed to display real-time data from sensors and actuators, providing a user-friendly interface for monitoring and controlling the greenhouse environment. The frontend interacts with a backend server to fetch and display data.
@@ -45,11 +48,60 @@ The frontend communicates with a backend server that:
 
 ---
 
+## Using ngrok for Backend Accessibility
+
+When the backend is hosted locally and the frontend is deployed on Firebase, use `ngrok` to expose the local backend to the internet. 
+This ensures compatibility with the hosted frontend.
+
+### Steps to Use ngrok:
+1. **Install ngrok**:
+   ```bash
+   npm install -g ngrok
+   ```
+
+2. **Run the local backend server**:
+   Start your backend server. For example:
+   ```bash
+   node server.js
+   ```
+
+3. **Create an ngrok tunnel**:
+   Run the following command to create a public URL pointing to your backend:
+   ```bash
+   ngrok http 3000
+   ```
+   Replace `3000` with your backend's port number. ngrok will provide a public URL like `https://<random-string>.ngrok-free.app`.
+
+4. **Update the frontend API URL**:
+   Replace the local API URL in your frontend code with the generated ngrok public URL:
+   ```javascript
+   const apiUrl = "https://<your-ngrok-url>/getLastData";
+   ```
+
+5. **Bypass ngrok Browser Warning**:
+   To prevent the ngrok browser warning page from interrupting requests, include the following header in your fetch requests:
+   ```javascript
+   headers: {
+     "ngrok-skip-browser-warning": "true"
+   }
+   ```
+
+6. **Test End-to-End Integration**:
+   - Deploy new Firebase-hosted frontend.
+   ```bash
+   firebase deploy
+   ```
+   - Open the Firebase-hosted frontend (e.g., `https://<your-firebase-app>.web.app`).
+   - Ensure the frontend successfully fetches data from the ngrok-exposed backend.
+
+---
+
 ## Setup Instructions
 
 ### Prerequisites
 - Node.js installed on your system.
-- A backend server running and accessible.
+- A backend server running locally.
+- Firebase CLI installed globally.
 
 ### Steps
 1. Clone the repository:
@@ -57,18 +109,22 @@ The frontend communicates with a backend server that:
    git clone https://github.com/your-repo/ESP32_Project.git
    cd ESP32_Project/frontend
    ```
+
 2. Install dependencies:
    ```bash
    npm install
    ```
+
 3. Set the backend URL:
    ```javascript
-   const apiUrl = "http://<your-backend-url>/getLastData";
+   const apiUrl = "https://<your-ngrok-url>/getLastData";
    ```
+
 4. Initialize Firebase Hosting:
    ```bash
    firebase init hosting
    ```
+
 5. Deploy the frontend:
    ```bash
    firebase deploy
@@ -76,16 +132,25 @@ The frontend communicates with a backend server that:
 
 ---
 
-### Key Updates
-1. **Backend Integration**:
-   - Added details about the backend endpoints and their purpose.
-   - Mentioned the requirement for the backend to be publicly accessible.
+## Key Considerations When Using ngrok
+1. **ngrok URL Changes**:
+   - Free-tier ngrok URLs are temporary and will change if the tunnel restarts.
+   - Each time you restart ngrok, update the frontend `apiUrl` with the new URL and redeploy to Firebase.
 
-2. **Hosting Purpose**:
-   - Highlighted the intention to host the frontend on a public platform like Firebase Hosting.
+2. **CORS Configuration**:
+   - Ensure the backend is configured to allow requests from the Firebase-hosted frontend. Use the correct `origin` in the `cors` middleware.
 
-3. **Setup Instructions**:
-   - Included steps to set up the frontend and connect it to the backend.
+3. **ngrok Header**:
+   - Use the `ngrok-skip-browser-warning` header in the frontend requests to bypass the browser warning.
 
-4. **Future Improvements**:
-   - Added potential enhancements for the project.
+4. **Deployment Workflow**:
+   - Always test the end-to-end setup after updating the `apiUrl` in the frontend and redeploying to Firebase Hosting.
+
+5. **Temporary solution**:
+   - Using ngrok is a temporary fix until firebase function are deployed. It is necessary a paid account.
+
+
+## Features Recap
+
+- **Real-Time Dashboard**: Provides up-to-date sensor and actuator information.
+- **Cross-Origin Compatibility**: Designed to work seamlessly with Firebase Hosting and ngrok.

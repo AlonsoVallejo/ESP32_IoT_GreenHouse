@@ -76,7 +76,7 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
 2. The ESP32 will:
    - Read sensor data.
    - Update the OLED display.
-   - Send data to the backend server every 5 seconds.
+   - Send data to the backend server every 15 seconds.
 3. The backend server will:
    - Store the data in Firebase.
    - Add a timestamp in CST.

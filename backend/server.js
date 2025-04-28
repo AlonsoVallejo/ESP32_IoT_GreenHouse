@@ -6,13 +6,23 @@ const moment = require("moment-timezone");
 const fetch = require("node-fetch");
 
 const app = express();
-app.use(cors());
+
+/** 
+ * Middleware to parse JSON requests
+ */
 app.use(bodyParser.json());
 
-// Firebase credentials
+/** Uncomment this line for local testing with the backend, comment it back before deploying */
+app.use(cors());
+
+/** 
+ * Load Firebase credentials for initializing Firebase Admin SDK
+ */
 let serviceAccount = require("./esp32_project_serviceAccountKey.json");
 
-// Function to initialize Firebase
+/** 
+ * Function to initialize Firebase Admin SDK
+ */
 function initializeFirebase() {
   if (admin.apps.length) {
     console.log("Firebase already initialized, skipping reinitialization.");
@@ -22,13 +32,15 @@ function initializeFirebase() {
   console.log("Initializing Firebase...");
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://esp32-project-ef103-default-rtdb.firebaseio.com/",
+    databaseURL: "https://esp32-project-ef103-default-rtdb.firebaseio.com/" /** Firebase Realtime Database URL */
   });
   console.log("Firebase initialized successfully.");
   return admin.database();
 }
 
-// Function to deinitialize Firebase
+/** 
+ * Function to deinitialize Firebase Admin SDK to free resources
+ */
 function deinitializeFirebase() {
   if (admin.apps.length) {
     console.log("Deinitializing Firebase...");
@@ -40,48 +52,63 @@ function deinitializeFirebase() {
   }
 }
 
-let db = initializeFirebase(); // Initialize Firebase at startup
+/** 
+ * Initialize Firebase when the server starts
+ */
+let db = initializeFirebase();
 
-// Function to monitor internet connectivity
+/** 
+ * Function to check internet connectivity by pinging Google
+ */
 async function checkConnectivity() {
   try {
     const response = await fetch("https://www.google.com", { method: "HEAD", timeout: 5000 });
-    return response.ok; // Online if status is OK
+    return response.ok; /** Return true if online */
   } catch (error) {
-    return false; // Offline if any error occurs
+    return false; /** Return false if offline */
   }
 }
 
-// Monitor connectivity and manage Firebase initialization
+/** 
+ * Periodically check internet connectivity and manage Firebase initialization
+ */
 setInterval(async () => {
   const isConnected = await checkConnectivity();
 
   if (!isConnected) {
     console.warn("Internet connection lost. Attempting to deinitialize Firebase...");
-    deinitializeFirebase(); // Clean up Firebase resources
-    db = null; // Reset database reference
+    deinitializeFirebase(); /** Clean up Firebase resources */
+    db = null; /** Reset database reference */
   } else {
-    if (!admin.apps.length) { // Only reinitialize if Firebase is not active
+    if (!admin.apps.length) { /** Reinitialize Firebase if it is not active */
       console.log("Internet connection restored. Reinitializing Firebase...");
-      db = initializeFirebase(); // Reinitialize Firebase
+      db = initializeFirebase(); 
     } 
   }
-}, 10000); // Check every 10 seconds
+}, 10000); /** Check every 10 seconds */
 
-// Existing endpoints remain unchanged
+/** 
+ * Root endpoint to confirm the server is running
+ */
 app.get("/", (req, res) => {
   res.send("Firebase Server is Running!");
 });
 
+/** 
+ * Endpoint to receive and store data from ESP32 devices
+ */
 app.post("/updateData", async (req, res) => {
   const sensorData = req.body;
 
+  /** Validate received data */
   if (!sensorData || Object.keys(sensorData).length === 0) {
     return res.status(400).send({ error: "No data received or invalid JSON payload" });
   }
 
+  /** Generate a timestamp in the 'America/Mexico_City' timezone */
   const timestampCST = moment().tz("America/Mexico_City").format();
 
+  /** Prepare data to be stored in Firebase */
   const preparedData = {
     type: sensorData.type || "unknown",
     lvl: sensorData.lvl !== undefined ? sensorData.lvl : null,
@@ -93,27 +120,29 @@ app.post("/updateData", async (req, res) => {
     pmp: sensorData.pmp !== undefined ? sensorData.pmp : null,
     flt: sensorData.flt !== undefined ? sensorData.flt : null,
     irr: sensorData.irr !== undefined ? sensorData.irr : null,
-    timestamp: timestampCST,
+    timestamp: timestampCST
   };
 
+  /** Remove null values from the prepared data */
   Object.keys(preparedData).forEach((key) => {
     if (preparedData[key] === null) {
       delete preparedData[key];
     }
   });
 
-  const dbRef = sensorData.type === "actuators" ? "actuatorData" : "sensorData";
+  const dbRef = sensorData.type === "actuators" ? "actuatorData" : "sensorData"; /** Choose the correct database path */
+
   if (db) {
     try {
-      // Add the new data
+      /** Push new data to Firebase */
       const newEntryRef = await db.ref(dbRef).push(preparedData);
 
-      // Cleanup old data if more than 60 entries exist
+      /** Clean up older entries if there are more than 60 */
       const snapshot = await db.ref(dbRef).orderByKey().once("value");
       const entries = snapshot.val();
 
       if (entries && Object.keys(entries).length > 60) {
-        const keysToDelete = Object.keys(entries).slice(0, Object.keys(entries).length - 60); // Oldest keys
+        const keysToDelete = Object.keys(entries).slice(0, Object.keys(entries).length - 60); /** Oldest keys */
         keysToDelete.forEach(async (key) => {
           await db.ref(`${dbRef}/${key}`).remove();
         });
@@ -129,9 +158,14 @@ app.post("/updateData", async (req, res) => {
   }
 });
 
+/** 
+ * Endpoint to fetch the latest data for sensors or actuators
+ */
 app.get("/getLastData", async (req, res) => {
+  console.log("Received request:", req.query); /** Log incoming request details */
   const { type } = req.query;
 
+  /** Validate query parameter */
   if (!type || (type !== "sensors" && type !== "actuators")) {
     return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
   }
@@ -140,11 +174,12 @@ app.get("/getLastData", async (req, res) => {
 
   if (db) {
     try {
+      /** Fetch the most recent entry */
       const snapshot = await db.ref(dbRef).orderByKey().limitToLast(1).once("value");
       const data = snapshot.val();
 
       if (data) {
-        const lastEntry = Object.values(data)[0]; // Get the most recent entry
+        const lastEntry = Object.values(data)[0]; /** Get the most recent entry */
         res.send(lastEntry);
       } else {
         res.status(404).send({ error: "No data found." });
@@ -158,9 +193,13 @@ app.get("/getLastData", async (req, res) => {
   }
 });
 
+/** 
+ * Endpoint to fetch historical data (last 60 entries) for sensors or actuators
+ */
 app.get("/getHistoryData", async (req, res) => {
   const { type } = req.query;
 
+  /** Validate query parameter */
   if (!type || (type !== "sensors" && type !== "actuators")) {
     return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
   }
@@ -169,12 +208,13 @@ app.get("/getHistoryData", async (req, res) => {
 
   if (db) {
     try {
+      /** Fetch the last 60 entries */
       const snapshot = await db.ref(dbRef).orderByKey().limitToLast(60).once("value");
       const data = snapshot.val();
 
       if (data) {
         const dataList = Object.values(data);
-        res.send(dataList.reverse()); // Opcional: para mostrar de más reciente a más viejo
+        res.send(dataList.reverse()); /** Reverse to show the most recent first */
       } else {
         res.status(404).send({ error: "No data found." });
       }
@@ -187,6 +227,9 @@ app.get("/getHistoryData", async (req, res) => {
   }
 });
 
+/** 
+ * Start the server on the specified port
+ */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

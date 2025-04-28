@@ -1,6 +1,9 @@
+
+---
+
 # Firebase Integration Server
 
-This project is a backend server that integrates with Firebase for storing data received from ESP32 devices. 
+This project is a backend server that integrates with Firebase for storing data received from ESP32 devices.  
 It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and supports robust handling of internet connection interruptions.
 
 ---
@@ -11,6 +14,7 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
 - **Irrigation Control Integration**: Supports receiving and storing irrigation system status (`ON`/`OFF`) from ESP32 devices.
 - **Connectivity Monitoring**: Periodically checks for internet connectivity and dynamically reinitializes Firebase when WiFi or internet is recovered.
 - **CST Timestamp Integration**: Automatically generates timestamps in the `America/Mexico_City` timezone for accurate data logging.
+- **Public Backend Exposure**: Allows the backend to be exposed to the internet using ngrok for testing and temporary public access.
 
 ---
 
@@ -33,6 +37,60 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
    ```
 
 4. Create and add your Firebase service account JSON credentials file as `esp32_project_serviceAccountKey.json` in the root folder.
+
+---
+
+## Making the Local Backend Public with ngrok
+
+To expose the local backend server to the internet:
+
+1. **Install ngrok**:
+   Ensure ngrok is installed globally:
+   ```bash
+   npm install -g ngrok
+   ```
+
+2. **Start the local backend server**:
+   Run the backend locally:
+   ```bash
+   node server.js
+   ```
+
+3. **Start an ngrok tunnel**:
+   Create a public HTTPS URL pointing to your local backend:
+   ```bash
+   ngrok http 3000
+   ```
+
+   Replace `3000` with the port number your backend server is listening on. ngrok will generate a public URL like `https://<random-string>.ngrok-free.app`.
+
+4. **Handle ngrok Browser Warning**:
+   To bypass ngrok's browser warning page, update your frontend API requests to include the `ngrok-skip-browser-warning` header:
+   ```javascript
+   headers: {
+     "ngrok-skip-browser-warning": "true"
+   }
+   ```
+
+5. **Enable Cross-Origin Resource Sharing (CORS)**:
+   Configure your backend to allow requests from external origins. Using `cors`:
+   ```javascript
+   const cors = require("cors");
+   app.use(cors({
+     origin: "*", // Replace "*" with specific URLs if required for production
+     methods: ["GET", "POST"]
+   }));
+   ```
+
+6. **Update Frontend API URL**:
+   Replace the local API URL in your frontend code with the generated ngrok URL:
+   ```javascript
+   const apiUrl = "https://<your-ngrok-url>/getLastData";
+   ```
+
+7. **Test Integration**:
+   - Open the public ngrok URL directly in your browser to verify it works.
+   - Test the hosted frontend using the updated ngrok URL.
 
 ---
 
@@ -112,7 +170,7 @@ The server periodically checks internet connectivity every 10 seconds:
 ---
 
 ## Notes
-
+- Firebase functions is even not supported. Functions require paid plan option.
 - Ensure Firebase credentials (`esp32_project_serviceAccountKey.json`) are valid.
 - Monitor server logs via PM2 to confirm connectivity changes and Firebase reinitialization.
 - Make sure your ESP32 devices send valid JSON payloads to the server, including the `irr` field for irrigation status.

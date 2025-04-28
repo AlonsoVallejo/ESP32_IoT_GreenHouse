@@ -45,7 +45,7 @@ using namespace std;
 #define TASK_CORE_0 (0)
 #define TASK_CORE_1 (1)
 
-const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* IP of localhost */
+const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* Your server API URL for POST data; TODO: Use firebase functions */
 const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
 const char* password = "3kK4H6W48P";
 
