@@ -8,6 +8,7 @@
 #include "ProcessMgr.h"
 #include "SystemData.h"
 #include "DisplayMgr.h"
+#include "LogMgr.h"
 
 using namespace std;
 
@@ -124,6 +125,7 @@ void TaskControlActuators(void* pvParameters) {
 /* Task: Update display with sensor data */
 void TaskDisplay(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
+    bool debug = true; // Enable or disable logging
 
     for (;;) {
         switch (data->currentSelector) {
@@ -145,16 +147,16 @@ void TaskDisplay(void* pvParameters) {
         }
 
         data->oledDisplay->PrintdisplayData();
-        
-        Serial.print("Lvl: " + String(data->levelPercentage) + "%");
-        Serial.print(" Temp: " + String(data->tempHumSensor->getTemperature()) + "C");
-        Serial.print(" Hum: " + String(data->tempHumSensor->getHumidity()) + "%");
-        Serial.print(" ldr: " + String(data->lightSensor->getSensorValue()));
-        Serial.print(" PIR: " + String(data->PirPresenceDetected));
-        Serial.print(" lamp: " + String(data->lamp->getOutstate()));
-        Serial.print(" Pump: " + String(data->pump->getOutstate()));
-        Serial.print(" lvlFlt: " + String(data->ledInd->getOutstate()));
-        Serial.println(" Irgtr: " + String(data->irrigator->getOutstate()));
+
+        LogSerial("Lvl: " + String(data->levelPercentage) + "%", debug);
+        LogSerial(" Temp: " + String(data->tempHumSensor->getTemperature()) + "C", debug);
+        LogSerial(" Hum: " + String(data->tempHumSensor->getHumidity()) + "%", debug);
+        LogSerial(" ldr: " + String(data->lightSensor->getSensorValue()), debug);
+        LogSerial(" PIR: " + String(data->PirPresenceDetected), debug);
+        LogSerial(" lamp: " + String(data->lamp->getOutstate()), debug);
+        LogSerial(" Pump: " + String(data->pump->getOutstate()), debug);
+        LogSerial(" lvlFlt: " + String(data->ledInd->getOutstate()), debug);
+        LogSerialn(" Irgtr: " + String(data->irrigator->getOutstate()), debug);
 
         vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_1000_MS)); // Update display every 1 second
     }
@@ -164,45 +166,45 @@ void TaskSendDataToServer(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
     bool wifiConnecting = false; /* Flag to track if WiFi connection is being attempted */ 
     bool wifiConnectedMessagePrinted = false; /* Flag to track if the "WiFi connected!" message has been printed */ 
+    bool debug = true;
 
     for (;;) {
         if (data->wifiManager->IsWiFiConnected()) {
-          wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
-          unsigned long currentMillis = millis();
-          static unsigned long lastSendTime = 0;
-          
-          if (!wifiConnectedMessagePrinted) {
-            Serial.print("WiFi connected! ESP32 IP Address: ");
-            Serial.println(data->wifiManager->getWiFiLocalIp());
-            wifiConnectedMessagePrinted = true; 
-          }
+            wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
+            unsigned long currentMillis = millis();
+            static unsigned long lastSendTime = 0;
+            
+            if (!wifiConnectedMessagePrinted) {
+                LogSerialn("WiFi connected! ESP32 IP Address: " + data->wifiManager->getWiFiLocalIp().toString(), debug);
+                wifiConnectedMessagePrinted = true; 
+            }
 
-          /* Send data to Firebase server */
-          if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_15_S) {
-            lastSendTime = currentMillis;
+            /* Send data to Firebase server */
+            if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_15_S) {
+                lastSendTime = currentMillis;
 
-            Serial.println("Sending Sensor data to server...");
-            data->client->prepareData("type", "sensors");
-            data->client->prepareData("lvl", String(data->levelPercentage));
-            data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
-            data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
-            data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
-            data->client->prepareData("pir", String(data->PirPresenceDetected));
-            data->client->sendPayload();
+                LogSerialn("Sending Sensor data to server...", debug);
+                data->client->prepareData("type", "sensors");
+                data->client->prepareData("lvl", String(data->levelPercentage));
+                data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
+                data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
+                data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
+                data->client->prepareData("pir", String(data->PirPresenceDetected));
+                data->client->sendPayload();
 
-            Serial.println("Sending Actuators data to server...");
-            data->client->prepareData("type", "actuators");
-            data->client->prepareData("lmp", String(data->lamp->getOutstate()));
-            data->client->prepareData("pmp", String(data->pump->getOutstate()));
-            data->client->prepareData("flt", String(data->ledInd->getOutstate()));
-            data->client->prepareData("irr", String(data->irrigator->getOutstate()));
-              data->client->sendPayload();
-          }
+                LogSerialn("Sending Actuators data to server...", debug);
+                data->client->prepareData("type", "actuators");
+                data->client->prepareData("lmp", String(data->lamp->getOutstate()));
+                data->client->prepareData("pmp", String(data->pump->getOutstate()));
+                data->client->prepareData("flt", String(data->ledInd->getOutstate()));
+                data->client->prepareData("irr", String(data->irrigator->getOutstate()));
+                data->client->sendPayload();
+            }
         } else {
             wifiConnectedMessagePrinted = false; /* Reset the flag when WiFi is disconnected */ 
             if (!wifiConnecting) {
                 wifiConnecting = true; /* Set the flag to prevent multiple connection attempts */ 
-                Serial.println("WiFi disconnected! Attempting to reconnect...");
+                LogSerialn("WiFi disconnected! Attempting to reconnect...", debug);
                 data->wifiManager->connectWiFi();
             }
         }
@@ -230,17 +232,16 @@ const char* getResetReasonString(esp_reset_reason_t reason) {
 
 void setup() {
     Serial.begin(9600);
-
-    Serial.println("Starting...");
+    LogSerialn("Starting...", true);
 
     // Get the reset reason for CPU0
     esp_reset_reason_t reason = esp_reset_reason();
-    Serial.print("Reset reason: ");
-    Serial.println(getResetReasonString(reason));
+    LogSerial("Reset reason: ", true);
+    LogSerialn(getResetReasonString(reason), true);
 
     xSystemDataMutex = xSemaphoreCreateMutex();
     if (xSystemDataMutex == NULL) {
-        Serial.println("Failed to create mutex");
+        LogSerialn("Failed to create mutex", true);
     }
 
     static SystemData systemData = {
@@ -278,18 +279,18 @@ void setup() {
     /* Initialize the temperature and humidity sensor */ 
     systemData.tempHumSensor->dhtSensorInit();
 
-    Serial.println("Sensor/Actuator/Display/WiFi objects initialized");
+    LogSerialn("Sensor/Actuator/Display/WiFi objects initialized", true);
 
     /* Core 0: Real-Time Peripheral and Logic */
     xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 4096, &systemData, 3, NULL, TASK_CORE_0);
     xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", 2048, &systemData, 2, NULL, TASK_CORE_0);
     xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", 2048, &systemData, 2, NULL, TASK_CORE_0);
-    Serial.println("Core 0: Sensor/Actuator tasks initialized");
+    LogSerialn("Core 0: Sensor/Actuator tasks initialized", true);
 
     /* Core 1: Communication and Display */
     xTaskCreatePinnedToCore(TaskDisplay, "Display", 2048, &systemData, 2, NULL, TASK_CORE_1);
     xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", 4096, &systemData, 1, NULL, TASK_CORE_1);
-    Serial.println("Core 1: Display/Client tasks initialized");
+    LogSerialn("Core 1: Display/Client tasks initialized", true);
 }
 
 void loop() {

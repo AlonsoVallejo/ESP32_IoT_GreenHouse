@@ -1,6 +1,6 @@
 #include "client_classes.h"
 #include <Arduino.h>
-
+#include "LogMgr.h"
 /**
  * @brief Constructor for ServerClient class.
  * @param serverUrl URL of the backend server.
@@ -38,13 +38,13 @@ void ServerClient::sendPayload() {
         int httpResponseCode = http.POST(payload);
         if (httpResponseCode > 0) {
             // HTTP POST successful
-            Serial.print("HTTP POST successful, response code: ");
-            Serial.println(httpResponseCode);
+            LogSerial("HTTP POST successful, response code: ", true);
+            LogSerialn(String(httpResponseCode), true);
             break; // Exit retry loop
         } else {
             // HTTP POST failed
-            Serial.print("HTTP POST failed, error: ");
-            Serial.println(http.errorToString(httpResponseCode).c_str());
+            LogSerial("HTTP POST failed, error: ", true);
+            LogSerialn(http.errorToString(httpResponseCode).c_str(), true);
         }
 
         http.end(); // Close the connection

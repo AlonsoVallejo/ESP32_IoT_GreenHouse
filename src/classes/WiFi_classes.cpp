@@ -1,4 +1,5 @@
 #include "WiFi_classes.h"
+#include "LogMgr.h" 
 #include <Arduino.h>
 
 /**
@@ -22,12 +23,12 @@ const char* WiFiManager::getSSID() {
  */
 void WiFiManager::connectWiFi() {
     WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi");
+    LogSerial("Connecting to WiFi", true);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        LogSerial(".", true);
     }
-    Serial.println("\nWiFi connected!");
+    LogSerialn("\nWiFi connected!", true);
 }
 
 /**
