@@ -5,6 +5,9 @@
 #include "client_classes.h"
 #include "ESP32_shield.h"
 #include <esp_system.h> 
+#include "ProcessMgr.h"
+#include "SystemData.h"
+#include "DisplayMgr.h"
 
 using namespace std;
 
@@ -24,61 +27,12 @@ using namespace std;
 #define SUBTASK_INTERVAL_2_S     (2000)  
 #define SUBTASK_INTERVAL_15_S    (15000)  
 
-#define SENSOR_LVL_OPENCKT_V   (3975) // ADC value for open circuit
-#define SENSOR_LVL_STG_V       (124)  // ADC value for short circuit
-#define SENSOR_LVL_THRESHOLD_V (50) // ADC Threshold for level sensor
-
-#define MAX_LVL_PERCENTAGE (90) 
-#define MIN_LVL_PERCENTAGE (20) 
-
-#define SENSOR_HOT_TEMP_C   (30)
-#define SENSOR_LOW_HUMIDITY (15) 
-
-#define SENSOR_LVL_FAIL_OPEN  (0xFFFF)
-#define SENSOR_LVL_FAIL_SHORT (0x0000)
-
-#define LED_NO_FAIL_INDICATE (0x00) 
-#define LED_FAIL_INDICATE    (0x01) 
-
-#define SENSOR_PIR_COOL_DOWN_TIME (5000) 
-
 #define TASK_CORE_0 (0)
 #define TASK_CORE_1 (1)
 
 const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* Your server API URL for POST data; TODO: Use firebase functions */
 const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
 const char* password = "3kK4H6W48P";
-
-enum pb1Selector{
-  PB1_SELECT_DATA1, /* Display light, Pir and Lamp data */
-  PB1_SELECT_DATA2, /* Display level and PUMP data */
-  PB1_SELECT_DATA3, /* Display temperature and humidity data */
-  PB1_SELECT_DATA4, /* Display wifi status */
-};
-
-/* Struct to store all sensor, actuator, and display-related data */
-/* Do not forget to update the setup() init */
-struct SystemData {
-   /* Object Sensors */
-  AnalogSensor* levelSensor;
-  TemperatureHumiditySensor* tempHumSensor;
-  DigitalSensor* pirSensor;
-  DigitalSensor* lightSensor;
-  DigitalSensor* buttonSelector;
-  /* Object Actuators */
-  Actuator* ledInd;
-  Actuator* irrigator;
-  Actuator* pump;
-  Actuator* lamp;
-  /* Object display */
-  OledDisplay* oledDisplay;
-  /* Object client */
-  ServerClient* client;
-  /* Variables */
-  bool PirPresenceDetected;
-  pb1Selector currentSelector;
-  uint16_t levelPercentage;
-};
 
 SemaphoreHandle_t xSystemDataMutex;
 
@@ -119,108 +73,18 @@ void TaskReadSensors(void* pvParameters) {
 
 void TaskProcessData(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
-    unsigned long lastPirTriggerTime = 0;
-    bool presenceDetected = false;
-    bool pirWentLow = false;
 
     for (;;) {
-      unsigned long currentMillis = millis();
+        /* Handle Lamp activation logic */
+        handleLampActivation(data);
 
-      /* Handle Lamp activation logic */
-      bool lightState = data->lightSensor->getSensorValue();
-      bool pirState = data->pirSensor->getSensorValue();
-      bool lampState = data->lamp->getOutstate();
+        /* Handle pump activation logic */
+        handlePumpActivation(data);
 
-      if (pirState) {
-        /* If PIR detects presence, activate Lamp immediately */
-        presenceDetected = true;
-        pirWentLow = false; /** Reset cooldown tracking */
-        data->lamp->SetOutState(true);
-        lastPirTriggerTime = currentMillis; /** Reset PIR cooldown timer */
-      } else if (lightState && !lampState) {
-         /* If it's dark AND Lamp is OFF, activate Lamp */
-        data->lamp->SetOutState(true);
-      } else if (!lightState && !presenceDetected) { 
-        /* If light sensor detects LIGHT and PIR is NOT detecting presence, turn Lamp OFF immediately */
-        presenceDetected = false;
-        pirWentLow = false;
-        data->lamp->SetOutState(false);
-      } else if (!pirState && presenceDetected && !pirWentLow) {
-        /* If PIR stopped detecting presence, start cooldown */
-        pirWentLow = true;
-        lastPirTriggerTime = currentMillis;
-      } else if (pirWentLow && (currentMillis - lastPirTriggerTime >= SENSOR_PIR_COOL_DOWN_TIME)) { 
-         /* If PIR has been LOW for cooldown time, only turn Lamp OFF if light sensor does NOT require it to stay ON */
-        presenceDetected = false;
-        pirWentLow = false;
-        /* Only turn Lamp OFF if light sensor reports brightness */
-        if (!lightState) {
-          data->lamp->SetOutState(false);
-        }
-      } else {
-        /* Do nothing */
-      }
+        /* Irrigator Control */
+        handleIrrigatorControl(data);
 
-      /* Handle pump activation logic */
-      uint16_t levelValue = data->levelSensor->getSensorValue();
-      uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) / 
-                                ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
-      static bool pumpState = false;
-      
-      /** Check if the level sensor value is in an invalid range */
-      if (levelValue >= SENSOR_LVL_OPENCKT_V || levelValue <= SENSOR_LVL_STG_V) {
-        /** Sensor failure detected—turn Pump OFF to prevent misactivation */
-        data->ledInd->SetOutState(LED_FAIL_INDICATE);
-        pumpState = false;
-      } else {
-        data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
-        if (levelPercentage <= MIN_LVL_PERCENTAGE) {
-          /* Activate pump when level percentage is low */
-          pumpState = true;
-        } else if (levelPercentage >= MAX_LVL_PERCENTAGE) {
-          /* Deactivate pump when level percentage has reach the max*/
-          pumpState = false;
-        } else {
-          /* Do nothing */
-        }
-      }
-      if(levelPercentage >= 100) {
-        levelPercentage = 100; // Ensure level percentage does not exceed 100%
-      } 
-
-      /** Apply pump state */
-      data->pump->SetOutState(pumpState); 
-
-      /* Irrigator Control */
-      double temperature = data->tempHumSensor->getTemperature();
-      double humidity = data->tempHumSensor->getHumidity();
-
-      /* Add hysteresis to prevent frequent toggling */
-      static bool irrigatorState = false;
-
-      // Check for valid temperature and humidity values
-      if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100) {
-          if (temperature >= SENSOR_HOT_TEMP_C && humidity <= SENSOR_LOW_HUMIDITY) {
-              if (!irrigatorState) {
-                  data->irrigator->SetOutState(true); 
-                  irrigatorState = true;
-              }
-          } else if (temperature < SENSOR_HOT_TEMP_C - 2 || humidity > SENSOR_LOW_HUMIDITY + 5) {
-              if (irrigatorState) {
-                  data->irrigator->SetOutState(false);
-                  irrigatorState = false;
-              }
-          }
-      } 
-      
-      /** Protect shared variable access */
-      if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
-          data->PirPresenceDetected = presenceDetected;
-          data->levelPercentage = levelPercentage;
-          xSemaphoreGive(xSystemDataMutex);
-      }
-
-      vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
+        vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
     }
 }
 
@@ -259,78 +123,41 @@ void TaskControlActuators(void* pvParameters) {
 
 /* Task: Update display with sensor data */
 void TaskDisplay(void* pvParameters) {
-  SystemData* data = (SystemData*)pvParameters;
-  uint16_t levelValue = 0;
-  uint16_t levelPercentage = 0;
+    SystemData* data = (SystemData*)pvParameters;
 
-  for (;;) {
-      switch (data->currentSelector) {
-          case PB1_SELECT_DATA1:
-              data->oledDisplay->SetdisplayData(0, 0, "Light Sensor: ");
-              data->oledDisplay->SetdisplayData(80, 0, data->lightSensor->getSensorValue() ? "Dark" : "Light");
+    for (;;) {
+        switch (data->currentSelector) {
+            case PB1_SELECT_DATA1:
+                displayLightAndPresence(data);
+                break;
 
-              data->oledDisplay->SetdisplayData(0, 10, "Prencese: ");
-              data->oledDisplay->SetdisplayData(80, 10, data->PirPresenceDetected ? "YES" : "NO");
+            case PB1_SELECT_DATA2:
+                displayWaterLevelAndPump(data);
+                break;
 
-              data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
-              data->oledDisplay->SetdisplayData(80, 20, data->lamp->getOutstate() ? "ON" : "OFF");
-          break;
+            case PB1_SELECT_DATA3:
+                displayTemperatureAndHumidity(data);
+                break;
 
-          case PB1_SELECT_DATA2:
-              data->oledDisplay->SetdisplayData(0, 0, "Water Level: ");
-              levelValue = data->levelSensor->getSensorValue();
-              if (levelValue >= SENSOR_LVL_OPENCKT_V) {
-                  data->oledDisplay->SetdisplayData(80, 0, "OPEN");
-              } else if (levelValue <= SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V) {
-                  data->oledDisplay->SetdisplayData(80, 0, "SHORT");
-              } else if (levelValue >= SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) {
-                // Ensure 100% is displayed just before OPEN
-                data->oledDisplay->SetdisplayData(80, 0, "100%");
-              } else {
-                    data->oledDisplay->SetdisplayData(80,  0, data->levelPercentage);
-                    data->oledDisplay->SetdisplayData(105, 0, "%");
-                }
-                data->oledDisplay->SetdisplayData(0,  10, "Pump: ");
-                data->oledDisplay->SetdisplayData(80, 10, data->pump->getOutstate() ? "ON" : "OFF");
-                data->oledDisplay->SetdisplayData(0,  20, " ");
-                data->oledDisplay->SetdisplayData(80, 20, " ");
-          break;
+            case PB1_SELECT_DATA4:
+                displayWiFiStatus(data);
+                break;
+        }
 
-          case PB1_SELECT_DATA3:
-              data->oledDisplay->SetdisplayData(0,   0,  "Temperature: ");
-              data->oledDisplay->SetdisplayData(80,  0,  data->tempHumSensor->getTemperature());
-              data->oledDisplay->SetdisplayData(105, 0,  "C");
+        data->oledDisplay->PrintdisplayData();
+        
+        Serial.print("Lvl: " + String(data->levelPercentage) + "%");
+        Serial.print(" Temp: " + String(data->tempHumSensor->getTemperature()) + "C");
+        Serial.print(" Hum: " + String(data->tempHumSensor->getHumidity()) + "%");
+        Serial.print(" ldr: " + String(data->lightSensor->getSensorValue()));
+        Serial.print(" PIR: " + String(data->PirPresenceDetected));
+        Serial.print(" lamp: " + String(data->lamp->getOutstate()));
+        Serial.print(" Pump: " + String(data->pump->getOutstate()));
+        Serial.print(" lvlFlt: " + String(data->ledInd->getOutstate()));
+        Serial.println(" Irgtr: " + String(data->irrigator->getOutstate()));
 
-              data->oledDisplay->SetdisplayData(0,   10, "Humidity: ");
-              data->oledDisplay->SetdisplayData(80,  10, data->tempHumSensor->getHumidity());
-              data->oledDisplay->SetdisplayData(105, 10, "%");
-
-              data->oledDisplay->SetdisplayData(0,   20, "Irrigator: ");
-              data->oledDisplay->SetdisplayData(80,  20, data->irrigator->getOutstate() ? "ON" : "OFF");
-          break;
-
-          case PB1_SELECT_DATA4:
-              data->oledDisplay->SetdisplayData(0,   0, "Wifi: ");
-              data->oledDisplay->SetdisplayData(0,   10, ssid);
-              data->oledDisplay->SetdisplayData(0,   20, "Status: ");
-              data->oledDisplay->SetdisplayData(45,   20, data->client->IsWiFiConnected() ? "Connected" : "Disconnected");
-          break;
-      }
-
-      Serial.print("Lvl: " + String(data->levelPercentage) + "%");
-      Serial.print(" Temp: " + String(data->tempHumSensor->getTemperature()) + "C");
-      Serial.print(" Hum: " + String(data->tempHumSensor->getHumidity()) + "%");
-      Serial.print(" ldr: " + String(data->lightSensor->getSensorValue()));
-      Serial.print(" PIR: " + String(data->PirPresenceDetected));
-      Serial.print(" lamp: " + String(data->lamp->getOutstate()));
-      Serial.print(" Pump: " + String(data->pump->getOutstate()));
-      Serial.print(" lvlFlt: " + String(data->ledInd->getOutstate()));
-      Serial.println(" Irgtr: " + String(data->irrigator->getOutstate()));
-
-      data->oledDisplay->PrintdisplayData();
-
-      vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_1000_MS)); // Update display every 1 second
-  }
+        vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_1000_MS)); // Update display every 1 second
+    }
 }
 
 void TaskSendDataToServer(void* pvParameters) {
@@ -339,14 +166,14 @@ void TaskSendDataToServer(void* pvParameters) {
     bool wifiConnectedMessagePrinted = false; /* Flag to track if the "WiFi connected!" message has been printed */ 
 
     for (;;) {
-        if (data->client->IsWiFiConnected()) {
+        if (data->wifiManager->IsWiFiConnected()) {
           wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
           unsigned long currentMillis = millis();
           static unsigned long lastSendTime = 0;
           
           if (!wifiConnectedMessagePrinted) {
             Serial.print("WiFi connected! ESP32 IP Address: ");
-            Serial.println(data->client->getWiFiLocalIp());
+            Serial.println(data->wifiManager->getWiFiLocalIp());
             wifiConnectedMessagePrinted = true; 
           }
 
@@ -376,7 +203,7 @@ void TaskSendDataToServer(void* pvParameters) {
             if (!wifiConnecting) {
                 wifiConnecting = true; /* Set the flag to prevent multiple connection attempts */ 
                 Serial.println("WiFi disconnected! Attempting to reconnect...");
-                data->client->connectWiFi();
+                data->wifiManager->connectWiFi();
             }
         }
 
@@ -430,18 +257,25 @@ void setup() {
         new Actuator(ACTUATOR_LAMP_PIN),
         /* Display */
         new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
+        /* WiFi */
+        new WiFiManager(ssid, password),
         /* Client */
-        new ServerClient(serverUrl, ssid, password),
+        nullptr, // Temporarily set to nullptr
         /* Variables */
         true,
         PB1_SELECT_DATA1,
         0
     };
 
+    /* Initialize the ServerClient after systemData is fully constructed */ 
+    systemData.client = new ServerClient(serverUrl, systemData.wifiManager);
+
+    /* Initialize the display */ 
     systemData.oledDisplay->init();
     systemData.oledDisplay->clearAllDisplay();
     systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
 
+    /* Initialize the temperature and humidity sensor */ 
     systemData.tempHumSensor->dhtSensorInit();
 
     Serial.println("Sensor/Actuator/Display/WiFi objects initialized");

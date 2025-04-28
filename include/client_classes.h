@@ -1,23 +1,23 @@
 #ifndef CLIENT_CLASSES_H
 #define CLIENT_CLASSES_H
 
-#include <WiFi.h>
 #include <HTTPClient.h>
+#include "WiFi_classes.h"
 
+/**
+ * @brief Class to manage client-server communication.
+ */
 class ServerClient {
 private:
     const char* serverUrl;
-    const char* ssid;
-    const char* password;
     String payload;
+    WiFiManager* wifiManager;
+
 public:
-    ServerClient(const char* serverUrl, const char* ssid, const char* password);
-    void connectWiFi();
+    ServerClient(const char* serverUrl, WiFiManager* wifiManager);
     void prepareData(const String& key, const String& value);
     void sendPayload();
     void closeConnection();
-    bool IsWiFiConnected();
-    IPAddress getWiFiLocalIp();
     void resetServer();
 };
 
