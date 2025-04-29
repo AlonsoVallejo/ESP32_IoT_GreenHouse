@@ -197,11 +197,14 @@ app.get("/getLastData", async (req, res) => {
  * Endpoint to fetch historical data (last 60 entries) for sensors or actuators
  */
 app.get("/getHistoryData", async (req, res) => {
-  const { type } = req.query;
+  const { type, key } = req.query;
 
-  /** Validate query parameter */
+  /** Validate query parameters */
   if (!type || (type !== "sensors" && type !== "actuators")) {
     return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
+  }
+  if (!key) {
+    return res.status(400).send({ error: "Missing 'key' query parameter." });
   }
 
   const dbRef = type === "actuators" ? "actuatorData" : "sensorData";
@@ -213,8 +216,11 @@ app.get("/getHistoryData", async (req, res) => {
       const data = snapshot.val();
 
       if (data) {
-        const dataList = Object.values(data);
-        res.send(dataList.reverse()); /** Reverse to show the most recent first */
+        /** Filter the data to include only entries with the specified key */
+        const filteredData = Object.values(data).filter((entry) => entry[key] !== undefined);
+
+        /** Send the raw data to the frontend */
+        res.send(filteredData.reverse()); /** Reverse to show the most recent first */
       } else {
         res.status(404).send({ error: "No data found." });
       }

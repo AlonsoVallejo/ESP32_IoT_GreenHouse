@@ -145,25 +145,45 @@ function flipCard(card, key) {
     const historyList = card.querySelector('.history-list');
     historyList.innerHTML = "";
 
-    /** Filter out duplicate timestamps and preserve unique history entries */
-    const seenTimestamps = new Set();
-    const uniqueHistory = [...historyData[key]].reverse().filter(item => {
-      if (seenTimestamps.has(item.timestamp)) {
-        return false; /** Ignore duplicate timestamps */
-      } else {
-        seenTimestamps.add(item.timestamp);
-        return true; /** Include unique timestamp */
-      }
-    });
+    /** Fetch the last 60 entries for the specific key from the backend */
+    const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors";
+    const historyApiUrl = apiUrl.replace("getLastData", "getHistoryData");
 
-    uniqueHistory.forEach(item => {
-      const date = new Date(item.timestamp);
-      const formattedDate = date.toLocaleString();
-      const div = document.createElement('div');
-      div.className = "history-item";
-      div.textContent = `${formattedDate}: ${item.value} ${item.unit}`;
-      historyList.appendChild(div);
-    });
+    fetch(`${historyApiUrl}?type=${type}&key=${key}`)
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to fetch history data");
+        return response.json();
+      })
+      .then(history => {
+        /** Process and display the fetched history */
+        history.forEach(item => {
+          const value = item[key] !== undefined
+            ? key === "ldr" ? (item[key] === "1" ? "Dark" : "Light")
+            : key === "pir" ? (item[key] === "0" ? "None" : "Detected")
+            : key === "pmp" ? (item[key] === "0" ? "OFF" : "ON")
+            : key === "flt" ? (item[key] === "0" ? "NO" : "YES")
+            : key === "lmp" ? (item[key] === "1" ? "ON" : "OFF")
+            : key === "irr" ? (item[key] === "1" ? "ON" : "OFF")
+            : item[key]
+            : "N/A";
+
+          const unit = key === "lvl" ? "%" : key === "tmp" ? "°C" : key === "hum" ? "%" : "";
+
+          const date = new Date(item.timestamp);
+          const formattedDate = date.toLocaleString();
+          const div = document.createElement('div');
+          div.className = "history-item";
+          div.textContent = `${formattedDate}: ${value} ${unit}`;
+          historyList.appendChild(div);
+        });
+      })
+      .catch(error => {
+        console.error("Error fetching history data:", error);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = "history-item";
+        errorDiv.textContent = "Error loading history.";
+        historyList.appendChild(errorDiv);
+      });
   }
 }
 
