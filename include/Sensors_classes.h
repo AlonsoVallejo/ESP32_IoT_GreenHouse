@@ -5,7 +5,7 @@
 #include "dht11_sens_classes.h"
 
 class Sensor {
-protected:
+private:
     uint8_t pin; 
 public:
     Sensor(uint8_t pin);

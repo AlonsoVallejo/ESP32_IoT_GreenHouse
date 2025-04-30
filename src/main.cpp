@@ -10,7 +10,7 @@ using namespace std;
 #define SENSOR_HUM_TEMP_PIN     (SHIELD_DAC1_D25)
 #define SENSOR_LDR_PIN          (SHIELD_DIMMER_ZC_D5) 
 #define SENSOR_PIR_PIN          (SHIELD_DHT11_D13)
-#define SENSOR_PBSELECTOR_PIN   (SHIELD_PUSHB1_D33)
+#define SENSOR_PB_SELECT_PIN    (SHIELD_PUSHB1_D33)
 #define ACTUATOR_LED_FAULT_PIN  (SHIELD_LED4_D14)
 #define ACTUATOR_IRRIGATOR_PIN  (SHIELD_RELAY1_D4)
 #define ACTUATOR_PUMP_PIN       (SHIELD_RELAY2_D2)
@@ -19,7 +19,7 @@ using namespace std;
 #define SUBTASK_INTERVAL_100_MS  (100)
 #define SUBTASK_INTERVAL_500_MS  (500)
 #define SUBTASK_INTERVAL_1000_MS (1000)     
-#define SUBTASK_INTERVAL_2_S     (2000)  
+#define SUBTASK_INTERVAL_2000_MS (2000)  
 #define SUBTASK_INTERVAL_15_S    (15000)  
 
 #define TASK_CORE_0 (0)
@@ -57,7 +57,7 @@ void TaskReadSensors(void* pvParameters) {
         }
 
         /* Read temperature and humidity */
-        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2_S) {
+        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2000_MS) {
             lastTempHumReadTime = currentMillis;
             double temperature = data->tempHumSensor->readValueTemperature();
             double humidity = data->tempHumSensor->readValueHumidity();
@@ -126,19 +126,16 @@ void TaskDisplay(void* pvParameters) {
         switch (data->currentSelector) {
             case PB1_SELECT_DATA1:
                 displayLightAndPresence(data);
-                break;
-
+            break;
             case PB1_SELECT_DATA2:
                 displayWaterLevelAndPump(data);
-                break;
-
+            break;
             case PB1_SELECT_DATA3:
                 displayTemperatureAndHumidity(data);
-                break;
-
+            break;
             case PB1_SELECT_DATA4:
                 displayWiFiStatus(data);
-                break;
+            break;
         }
 
         data->oledDisplay->PrintdisplayData();
@@ -179,21 +176,21 @@ void TaskSendDataToServer(void* pvParameters) {
                 lastSendTime = currentMillis;
 
                 LogSerialn("Sending Sensor data to server...", debug);
-                data->client->prepareData("type", "sensors");
-                data->client->prepareData("lvl", String(data->levelPercentage));
-                data->client->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
-                data->client->prepareData("hum", String(data->tempHumSensor->getHumidity()));
-                data->client->prepareData("ldr", String(data->lightSensor->getSensorValue()));
-                data->client->prepareData("pir", String(data->PirPresenceDetected));
-                data->client->sendPayload();
+                data->SrvClient->prepareData("type", "sensors");
+                data->SrvClient->prepareData("lvl", String(data->levelPercentage));
+                data->SrvClient->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
+                data->SrvClient->prepareData("hum", String(data->tempHumSensor->getHumidity()));
+                data->SrvClient->prepareData("ldr", String(data->lightSensor->getSensorValue()));
+                data->SrvClient->prepareData("pir", String(data->PirPresenceDetected));
+                data->SrvClient->sendPayload();
 
                 LogSerialn("Sending Actuators data to server...", debug);
-                data->client->prepareData("type", "actuators");
-                data->client->prepareData("lmp", String(data->lamp->getOutstate()));
-                data->client->prepareData("pmp", String(data->pump->getOutstate()));
-                data->client->prepareData("flt", String(data->ledInd->getOutstate()));
-                data->client->prepareData("irr", String(data->irrigator->getOutstate()));
-                data->client->sendPayload();
+                data->SrvClient->prepareData("type", "actuators");
+                data->SrvClient->prepareData("lmp", String(data->lamp->getOutstate()));
+                data->SrvClient->prepareData("pmp", String(data->pump->getOutstate()));
+                data->SrvClient->prepareData("flt", String(data->ledInd->getOutstate()));
+                data->SrvClient->prepareData("irr", String(data->irrigator->getOutstate()));
+                data->SrvClient->sendPayload();
             }
         } else {
             wifiConnectedMessagePrinted = false; /* Reset the flag when WiFi is disconnected */ 
@@ -228,7 +225,7 @@ void setup() {
         new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
         new DigitalSensor(SENSOR_PIR_PIN),
         new DigitalSensor(SENSOR_LDR_PIN),
-        new DigitalSensor(SENSOR_PBSELECTOR_PIN),
+        new DigitalSensor(SENSOR_PB_SELECT_PIN),
         /* Actuators */
         new Actuator(ACTUATOR_LED_FAULT_PIN),
         new Actuator(ACTUATOR_IRRIGATOR_PIN),
@@ -238,16 +235,16 @@ void setup() {
         new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
         /* WiFi */
         new WiFiManager(ssid, password),
-        /* Client */
-        nullptr, // Temporarily set to nullptr
+        /* SrvClient */
+        nullptr, // SrvClient obj Temporarily set to nullptr
         /* Variables */
         true,
         PB1_SELECT_DATA1,
         0
     };
 
-    /* Initialize the ServerClient after systemData is fully constructed */ 
-    systemData.client = new ServerClient(serverUrl, systemData.wifiManager);
+    /* Initialize the ServerSrvClient after systemData is fully constructed */ 
+    systemData.SrvClient = new ServerClient(serverUrl, systemData.wifiManager);
 
     /* Initialize the display */ 
     systemData.oledDisplay->init();
@@ -268,7 +265,7 @@ void setup() {
     /* Core 1: Communication and Display */
     xTaskCreatePinnedToCore(TaskDisplay, "Display", 2048, &systemData, 2, NULL, TASK_CORE_1);
     xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", 4096, &systemData, 1, NULL, TASK_CORE_1);
-    LogSerialn("Core 1: Display/Client tasks initialized", true);
+    LogSerialn("Core 1: Display/SrvClient tasks initialized", true);
 }
 
 void loop() {

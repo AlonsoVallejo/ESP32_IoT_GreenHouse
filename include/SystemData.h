@@ -45,7 +45,7 @@ struct SystemData {
     WiFiManager* wifiManager;
 
     /* Object client */
-    ServerClient* client;
+    ServerClient* SrvClient;
 
     /* Variables */
     bool PirPresenceDetected;
