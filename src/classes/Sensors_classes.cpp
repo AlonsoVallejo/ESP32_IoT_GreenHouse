@@ -5,7 +5,7 @@
  * @param pin Pin number where the sensor is connected.
  */
 Sensor::Sensor(uint8_t pin) : pin(pin) {
-    pinMode(pin, INPUT);
+    pinMode(pin, INPUT_PULLUP);
 }
 
 /**

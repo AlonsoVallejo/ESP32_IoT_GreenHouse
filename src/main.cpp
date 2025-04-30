@@ -1,11 +1,6 @@
 #include <Arduino.h>
-#include "Sensors_classes.h"
-#include "Actuators_classes.h"
-#include "OledDisplay_classes.h"
-#include "client_classes.h"
 #include "ESP32_shield.h"
 #include "ProcessMgr.h"
-#include "SystemData.h"
 #include "DisplayMgr.h"
 #include "LogMgr.h"
 
@@ -13,9 +8,9 @@ using namespace std;
 
 #define SENSOR_LVL_PIN          (SHIELD_POTENTIOMETER_VP)
 #define SENSOR_HUM_TEMP_PIN     (SHIELD_DAC1_D25)
-#define SENSOR_LDR_PIN          (SHIELD_PUSHB3_D34) 
+#define SENSOR_LDR_PIN          (SHIELD_DIMMER_ZC_D5) 
 #define SENSOR_PIR_PIN          (SHIELD_DHT11_D13)
-#define SENSOR_PBSELECTOR_PIN   (SHIELD_PUSHB2_D35)
+#define SENSOR_PBSELECTOR_PIN   (SHIELD_PUSHB1_D33)
 #define ACTUATOR_LED_FAULT_PIN  (SHIELD_LED4_D14)
 #define ACTUATOR_IRRIGATOR_PIN  (SHIELD_RELAY1_D4)
 #define ACTUATOR_PUMP_PIN       (SHIELD_RELAY2_D2)
@@ -217,7 +212,7 @@ void setup() {
     Serial.begin(9600);
     LogSerialn("Starting...", true);
 
-    // Get the reset reason for CPU0
+    /* Get the reset reason for CPU0 */ 
     esp_reset_reason_t reason = esp_reset_reason();
     LogSerial("Reset reason: ", true);
     LogSerialn(getResetReasonString(reason), true);
