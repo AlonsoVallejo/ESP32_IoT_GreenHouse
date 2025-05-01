@@ -40,14 +40,6 @@ double AnalogSensor::getVoltage() {
 }
 
 /**
- * @brief Gets the last recorded sensor value.
- * @return ADC value.
- */
-uint16_t AnalogSensor::getSensorValue() const {
-    return AdcValue;
-}
-
-/**
  * @brief Initializes a temperature and humidity sensor.
  * @param pin The input pin connected to the sensor.
  */
@@ -116,13 +108,5 @@ DigitalSensor::DigitalSensor(uint8_t pin) : Sensor(pin), SensorState(0) {}
  */
 uint16_t DigitalSensor::readRawValue() {
     SensorState = digitalRead(getPin());
-    return SensorState;
-}
-
-/**
- * @brief Retrieves the last recorded digital state.
- * @return Digital state (HIGH or LOW).
- */
-uint8_t DigitalSensor::getSensorValue() const {
     return SensorState;
 }

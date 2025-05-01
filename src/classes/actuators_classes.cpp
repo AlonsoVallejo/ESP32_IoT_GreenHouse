@@ -5,6 +5,7 @@
  * @param out_pin Pin number where the actuator is connected.
  */
 Actuator::Actuator(uint8_t out_pin) : out_pin(out_pin), ActuatorState(0) {
+    Serial.println("Initializing Actuator on pin: " + String(out_pin));
     pinMode(out_pin, OUTPUT);
 }
 

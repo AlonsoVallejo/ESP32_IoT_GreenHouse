@@ -43,8 +43,8 @@ void fetchUpdatedSettings(SystemData* data, const char* serverUrl) {
     int httpResponseCode = http.GET();
     if (httpResponseCode > 0) {
         String response = http.getString();
-        LogSerial("Fetched updated settings: ", true);
-        LogSerialn(response, true);
+        LogSerial("Fetched updated settings: ", false);
+        LogSerialn(response, false);
 
         /* Extract and update dynamic settings in SystemData */
         String maxLevelStr = extractJsonValue(response, "maxLevel");

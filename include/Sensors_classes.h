@@ -20,7 +20,6 @@ public:
     AnalogSensor(uint8_t pin);
     uint16_t readRawValue() override;
     double getVoltage();
-    uint16_t getSensorValue() const;
 };
 
 class TemperatureHumiditySensor : public Sensor, public dth11Sensor {
@@ -42,7 +41,6 @@ private:
 public:
     DigitalSensor(uint8_t pin);
     uint16_t readRawValue() override;
-    uint8_t getSensorValue() const; 
 };
 
 #endif

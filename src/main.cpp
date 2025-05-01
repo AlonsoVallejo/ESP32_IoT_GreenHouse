@@ -2,8 +2,8 @@
 #include "ESP32_shield.h"
 #include "ProcessMgr.h"
 #include "DisplayMgr.h"
-#include "LogMgr.h"
 #include "SrvClientMgr.h" 
+#include "LogMgr.h"
 
 using namespace std;
 
@@ -40,28 +40,27 @@ void TaskReadSensors(void* pvParameters) {
     for (;;) {
         unsigned long currentMillis = millis();
 
-        /* Update sensor values */
-        data->levelSensor->readRawValue();
-        data->lightSensor->readRawValue();
-        data->pirSensor->readRawValue();
-        data->buttonSelector->readRawValue();
+        /* Update individual sensor values */
+        data->sensorMgr->readLevelSensor();
+        data->sensorMgr->readPirSensor();
+        data->sensorMgr->readLightSensor();
+        data->sensorMgr->readButtonSelector();
+
+        /* Read temperature and humidity periodically */
+        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2000_MS) {
+            lastTempHumReadTime = currentMillis;
+            data->sensorMgr->readTemperatureHumiditySensor();
+        }
 
         /* Protect shared variable access */
         if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
-            bool buttonState = !(data->buttonSelector->getSensorValue());
+            bool buttonState = !(data->sensorMgr->getButtonSelectorValue()); /* (pressed = LOW, released = HIGH) */
             if (buttonState && (currentMillis - lastButtonPressTime > 300)) {
                 lastButtonPressTime = currentMillis;
                 /* Change display selector on button press */
                 data->currentSelector = static_cast<pb1Selector>((data->currentSelector + 1) % sizeof(pb1Selector));
             }
             xSemaphoreGive(xSystemDataMutex);
-        }
-
-        /* Read temperature and humidity */
-        if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2000_MS) {
-            lastTempHumReadTime = currentMillis;
-            double temperature = data->tempHumSensor->readValueTemperature();
-            double humidity = data->tempHumSensor->readValueHumidity();
         }
 
         vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100 ms
@@ -86,36 +85,13 @@ void TaskProcessData(void* pvParameters) {
 }
 
 void TaskControlActuators(void* pvParameters) {
-  SystemData* data = (SystemData*)pvParameters;
-  unsigned long lastSetAct_500ms = 0;
-  bool ledfailstate = false;
+    SystemData* data = (SystemData*)pvParameters;
+    for (;;) {
+        /* Apply internal states to hardware outputs */
+        data->actuatorMgr->applyState();
 
-  for (;;) {
-    unsigned long currentMillis = millis();
-
-    /* Toggling LED indicator in case of any failure */
-    if(data->ledInd->getOutstate() == LED_FAIL_INDICATE) {
-      if(currentMillis - lastSetAct_500ms >= SUBTASK_INTERVAL_500_MS) {
-        /* togggle LED every 500ms in case of Lvl failure */
-        lastSetAct_500ms = currentMillis;
-        ledfailstate = !ledfailstate;
-        data->ledInd->setActuatorState(ledfailstate);
-      }
-    } else {
-      data->ledInd->setActuatorState(LOW);
+        vTaskDelay(pdMS_TO_TICKS(100)); // Update actuators every 100ms
     }
-
-    /* Update Irrigator activation */
-    data->irrigator->setActuatorState(data->irrigator->getOutstate());
-
-    /* Update pump activation */
-    data->pump->setActuatorState(data->pump->getOutstate());
-
-    /* Update lamp activation */
-    data->lamp->setActuatorState(data->lamp->getOutstate());
-
-    vTaskDelay(pdMS_TO_TICKS(100)); // Update actuators every 100ms
-  }
 }
 
 /* Task: Update display with sensor data */
@@ -142,14 +118,14 @@ void TaskDisplay(void* pvParameters) {
         data->oledDisplay->PrintdisplayData();
 
         LogSerial("Lvl: " + String(data->levelPercentage) + "%", debug);
-        LogSerial(" Temp: " + String(data->tempHumSensor->getTemperature()) + "C", debug);
-        LogSerial(" Hum: " + String(data->tempHumSensor->getHumidity()) + "%", debug);
-        LogSerial(" ldr: " + String(data->lightSensor->getSensorValue()), debug);
+        LogSerial(" Temp: " + String(data->sensorMgr->getTemperature()) + "C", debug);
+        LogSerial(" Hum: " + String(data->sensorMgr->getHumidity()) + "%", debug);
+        LogSerial(" ldr: " + String(data->sensorMgr->getLightSensorValue()), debug);
         LogSerial(" PIR: " + String(data->PirPresenceDetected), debug);
-        LogSerial(" lamp: " + String(data->lamp->getOutstate()), debug);
-        LogSerial(" Pump: " + String(data->pump->getOutstate()), debug);
-        LogSerial(" lvlFlt: " + String(data->ledInd->getOutstate()), debug);
-        LogSerialn(" Irgtr: " + String(data->irrigator->getOutstate()), debug);
+        LogSerial(" lamp: " + String(data->actuatorMgr->getLamp()->getOutstate()), debug);
+        LogSerial(" Pump: " + String(data->actuatorMgr->getPump()->getOutstate()), debug);
+        LogSerial(" lvlFlt: " + String(data->actuatorMgr->getLedIndicator()->getOutstate()), debug);
+        LogSerialn(" Irgtr: " + String(data->actuatorMgr->getIrrigator()->getOutstate()), debug);
 
         vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_1000_MS));
     }
@@ -197,18 +173,18 @@ void TaskSendDataToServer(void* pvParameters) {
                 LogSerialn("Sending Sensor data to server...", debug);
                 data->SrvClient->prepareData("type", "sensors");
                 data->SrvClient->prepareData("lvl", String(data->levelPercentage));
-                data->SrvClient->prepareData("tmp", String(data->tempHumSensor->getTemperature()));
-                data->SrvClient->prepareData("hum", String(data->tempHumSensor->getHumidity()));
-                data->SrvClient->prepareData("ldr", String(data->lightSensor->getSensorValue()));
+                data->SrvClient->prepareData("tmp", String(data->sensorMgr->getTemperature()));
+                data->SrvClient->prepareData("hum", String(data->sensorMgr->getHumidity()));
+                data->SrvClient->prepareData("ldr", String(data->sensorMgr->getLightSensorValue()));
                 data->SrvClient->prepareData("pir", String(data->PirPresenceDetected));
                 data->SrvClient->sendPayload();
 
                 LogSerialn("Sending Actuators data to server...", debug);
                 data->SrvClient->prepareData("type", "actuators");
-                data->SrvClient->prepareData("lmp", String(data->lamp->getOutstate()));
-                data->SrvClient->prepareData("pmp", String(data->pump->getOutstate()));
-                data->SrvClient->prepareData("flt", String(data->ledInd->getOutstate()));
-                data->SrvClient->prepareData("irr", String(data->irrigator->getOutstate()));
+                data->SrvClient->prepareData("lmp", String(data->actuatorMgr->getLamp()->getOutstate()));
+                data->SrvClient->prepareData("pmp", String(data->actuatorMgr->getPump()->getOutstate()));
+                data->SrvClient->prepareData("flt", String(data->actuatorMgr->getLedIndicator()->getOutstate()));
+                data->SrvClient->prepareData("irr", String(data->actuatorMgr->getIrrigator()->getOutstate()));
                 data->SrvClient->sendPayload();
             }
         } else {
@@ -239,28 +215,25 @@ void setup() {
     }
 
     static SystemData systemData = {
-        /* Sensors */
-        new AnalogSensor(SENSOR_LVL_PIN),
-        new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
-        new DigitalSensor(SENSOR_PIR_PIN),
-        new DigitalSensor(SENSOR_LDR_PIN),
-        new DigitalSensor(SENSOR_PB_SELECT_PIN),
-        /* Actuators */
-        new Actuator(ACTUATOR_LED_FAULT_PIN),
-        new Actuator(ACTUATOR_IRRIGATOR_PIN),
-        new Actuator(ACTUATOR_PUMP_PIN),
-        new Actuator(ACTUATOR_LAMP_PIN),
-        /* Display */
+        new SensorManager(
+            new AnalogSensor(SENSOR_LVL_PIN),
+            new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
+            new DigitalSensor(SENSOR_PIR_PIN),
+            new DigitalSensor(SENSOR_LDR_PIN),
+            new DigitalSensor(SENSOR_PB_SELECT_PIN)
+        ),
+        new ActuatorManager(
+            new Actuator(ACTUATOR_LED_FAULT_PIN),
+            new Actuator(ACTUATOR_IRRIGATOR_PIN),
+            new Actuator(ACTUATOR_PUMP_PIN),
+            new Actuator(ACTUATOR_LAMP_PIN)
+        ),
         new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-        /* WiFi */
         new WiFiManager(ssid, password),
-        /* SrvClient */
-        nullptr, // SrvClient obj Temporarily set to nullptr
-        /* Variables */
+        nullptr, // SrvClient will be initialized later
         true,
         PB1_SELECT_DATA1,
         0,
-        /* Initialize dynamic settings with default macro values */
         DFLT_MAX_LVL_PERCENTAGE,
         DFLT_MIN_LVL_PERCENTAGE,
         DFLT_SENSOR_HOT_TEMP_C,
@@ -275,8 +248,8 @@ void setup() {
     systemData.oledDisplay->clearAllDisplay();
     systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
 
-    /* Initialize the temperature and humidity sensor */ 
-    systemData.tempHumSensor->dhtSensorInit();
+    /* Init DHT11 sensor */
+    systemData.sensorMgr->getTempHumSensor()->dhtSensorInit();
 
     LogSerialn("Sensor/Actuator/Display/WiFi objects initialized", true);
 
