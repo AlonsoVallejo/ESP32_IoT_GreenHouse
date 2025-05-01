@@ -138,3 +138,77 @@ body {
   .history-item:last-child {
     border-bottom: none;
   }
+
+  .settings-icon {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+    font-size: 24px;
+    color: #90ee90;
+    background-color: #2a2a3b;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+  }
+
+  .settings-icon:hover {
+    transform: scale(1.1);
+  }
+
+  .settings-menu {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background-color: #2a2a3b;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    width: 300px;
+  }
+
+  .settings-menu h3 {
+    margin-top: 0;
+    color: #f0f0f0;
+  }
+
+  .settings-menu form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .settings-menu form label {
+    font-size: 14px;
+    color: #f0f0f0;
+  }
+
+  .settings-menu form input {
+    padding: 8px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background-color: #1e1e2f;
+    color: #f0f0f0;
+  }
+
+  .settings-menu form button {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #90ee90;
+    color: #1e1e2f;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  .settings-menu form button:hover {
+    background-color: #76c776;
+  }

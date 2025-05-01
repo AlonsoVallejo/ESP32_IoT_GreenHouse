@@ -5,7 +5,7 @@
 //const apiUrl = "https://c0b1-2806-261-484-b18-f388-fad9-1f72-76b2.ngrok-free.app/getLastData"; 
 
 /** Uncomment this line for local testing with the backend */
-const apiUrl = "http://localhost:3000/getLastData";
+const apiUrl = "http://localhost:3000/";
 
 /** 
  * History object to store up to the last 60 entries of sensor and actuator data
@@ -28,7 +28,8 @@ const historyData = {
  * Includes the "ngrok-skip-browser-warning" header to bypass ngrok's warning page.
  */
 async function fetchData(type) {
-  const finalUrl = `${apiUrl}?type=${type}`; /** Append the type query parameter to the API URL */
+  const endpoint = type === "sensors" ? "getLastData?type=sensors" : "getLastData?type=actuators"; /** Dynamically construct the endpoint */
+  const finalUrl = `${apiUrl}${endpoint}`; /** Construct the full URL */
   try {
     const response = await fetch(finalUrl, {
       headers: {
@@ -139,24 +140,24 @@ function createOrUpdateCard(groupEl, title, unit, key, data) {
  * Flips the card to display its history and ensures duplicate timestamps are removed.
  */
 function flipCard(card, key) {
-  card.classList.toggle('flipped');
+  card.classList.toggle("flipped");
 
-  if (card.classList.contains('flipped')) {
-    const historyList = card.querySelector('.history-list');
+  if (card.classList.contains("flipped")) {
+    const historyList = card.querySelector(".history-list");
     historyList.innerHTML = "";
 
-    /** Fetch the last 60 entries for the specific key from the backend */
-    const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors";
-    const historyApiUrl = apiUrl.replace("getLastData", "getHistoryData");
+    const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors"; /** Determine the type */
+    const endpoint = `getHistoryData?type=${type}&key=${key}`; /** Construct the endpoint */
+    const historyApiUrl = `${apiUrl}${endpoint}`; /** Construct the full URL */
 
-    fetch(`${historyApiUrl}?type=${type}&key=${key}`)
-      .then(response => {
+    fetch(historyApiUrl)
+      .then((response) => {
         if (!response.ok) throw new Error("Failed to fetch history data");
         return response.json();
       })
-      .then(history => {
+      .then((history) => {
         /** Process and display the fetched history */
-        history.forEach(item => {
+        history.forEach((item) => {
           const value = item[key] !== undefined
             ? key === "ldr" ? (item[key] === "1" ? "Dark" : "Light")
             : key === "pir" ? (item[key] === "0" ? "None" : "Detected")
@@ -171,15 +172,15 @@ function flipCard(card, key) {
 
           const date = new Date(item.timestamp);
           const formattedDate = date.toLocaleString();
-          const div = document.createElement('div');
+          const div = document.createElement("div");
           div.className = "history-item";
           div.textContent = `${formattedDate}: ${value} ${unit}`;
           historyList.appendChild(div);
         });
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error fetching history data:", error);
-        const errorDiv = document.createElement('div');
+        const errorDiv = document.createElement("div");
         errorDiv.className = "history-item";
         errorDiv.textContent = "Error loading history.";
         historyList.appendChild(errorDiv);
@@ -187,9 +188,6 @@ function flipCard(card, key) {
   }
 }
 
-/** 
- * Fetches and updates the dashboard with the latest sensor and actuator data.
- */
 /** 
  * Fetches and updates the dashboard with the latest sensor and actuator data.
  */
@@ -257,10 +255,150 @@ async function updateDashboard() {
 }
 
 /** 
- * Set up the dashboard to update automatically every 5 seconds
- * after the page has loaded.
+ * Fetch current settings from the backend and populate the settings menu
  */
+async function loadSettings() {
+  const endpoint = "getSettings"; /** Define the endpoint */
+  const settingsApiUrl = `${apiUrl}${endpoint}`; /** Construct the full URL */
+
+  try {
+    const response = await fetch(settingsApiUrl);
+    if (!response.ok) throw new Error("Failed to fetch settings");
+
+    const settings = await response.json();
+    console.log("Fetched settings:", settings);
+
+    /** Populate the text boxes with the current settings */
+    document.getElementById("min-level").value = settings.minLevel !== "NA" ? settings.minLevel : "";
+    document.getElementById("max-level").value = settings.maxLevel !== "NA" ? settings.maxLevel : "";
+    document.getElementById("low-humidity").value = settings.lowHumidity !== "NA" ? settings.lowHumidity : "";
+    document.getElementById("hot-temperature").value = settings.hotTemperature !== "NA" ? settings.hotTemperature : "";
+  } catch (error) {
+    console.error("Error loading settings:", error);
+    alert("Failed to load current settings. Please try again later.");
+  }
+}
+
+/** Call loadSettings when the page loads */
 window.addEventListener("load", () => {
-  updateDashboard(); // Initial update on page load
-  setInterval(updateDashboard, 5000); // Refresh the dashboard every 5 seconds
+  loadSettings(); /** Load current settings */
+  updateDashboard(); /** Initial update on page load */
+  setInterval(updateDashboard, 5000); /** Refresh the dashboard every 5 seconds */
+});
+
+// Toggle settings menu visibility
+document.querySelectorAll('.settings-icon').forEach(icon => {
+  icon.addEventListener('click', (event) => {
+    const group = event.target.closest('.group');
+    const settingsMenu = group.querySelector('.settings-menu');
+    settingsMenu.style.display = settingsMenu.style.display === 'none' ? 'block' : 'none';
+  });
+});
+
+/** Toggle settings menu visibility */
+const settingsIcon = document.getElementById("settings-icon");
+const settingsMenu = document.getElementById("settings-menu");
+
+settingsIcon.addEventListener("click", () => {
+  if (settingsMenu) {
+    const isHidden = settingsMenu.style.display === "none";
+    settingsMenu.style.display = isHidden ? "block" : "none";
+
+    if (isHidden) {
+      loadSettings(); /** Reload settings when the menu is opened */
+    }
+  } else {
+    console.error("Settings menu element not found.");
+  }
+});
+
+// Handle form submissions for each group
+document.querySelectorAll('.settings-menu form').forEach(form => {
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const groupId = form.id.split('-')[2]; // Extract group ID (e.g., "group1")
+    const minValue = form.querySelector('input[name="min-value"]').value;
+    const maxValue = form.querySelector('input[name="max-value"]').value;
+
+    // Validate input
+    if (parseFloat(minValue) >= parseFloat(maxValue)) {
+      alert('Minimum value must be less than the maximum value.');
+      return;
+    }
+
+    // Send settings to the server
+    fetch('/savePumpSettings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ groupId, minValue, maxValue }),
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to save settings');
+        alert('Settings saved successfully!');
+      })
+      .catch(error => {
+        console.error('Error saving settings:', error);
+        alert('Failed to save settings.');
+      });
+  });
+});
+
+/** 
+ * Handle form submission for saving settings.
+ */
+const settingsForm = document.getElementById("settings-form");
+
+settingsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  /** Get input values */
+  const minLevelInput = document.getElementById("min-level");
+  const maxLevelInput = document.getElementById("max-level");
+  const lowHumidityInput = document.getElementById("low-humidity");
+  const hotTemperatureInput = document.getElementById("hot-temperature");
+
+  /** Prepare the userSettings object */
+  const userSettings = {
+    minLevel: minLevelInput.value ? parseFloat(minLevelInput.value) : "NA",
+    maxLevel: maxLevelInput.value ? parseFloat(maxLevelInput.value) : "NA",
+    lowHumidity: lowHumidityInput.value ? parseFloat(lowHumidityInput.value) : "NA",
+    hotTemperature: hotTemperatureInput.value ? parseFloat(hotTemperatureInput.value) : "NA",
+  };
+
+  /** Validation logic */
+  if ((userSettings.minLevel !== "NA" && userSettings.maxLevel === "NA") ||
+      (userSettings.maxLevel !== "NA" && userSettings.minLevel === "NA")) {
+    alert("If you change Min Level, you must also change Max Level, and vice versa.");
+    return;
+  }
+
+  if ((userSettings.lowHumidity !== "NA" && userSettings.hotTemperature === "NA") ||
+      (userSettings.hotTemperature !== "NA" && userSettings.lowHumidity === "NA")) {
+    alert("If you change Low Humidity, you must also change Hot Temperature, and vice versa.");
+    return;
+  }
+
+  /** Define the endpoint for saving settings */
+  const endpoint = "saveSettings";
+  const settingsApiUrl = `${apiUrl}${endpoint}`;
+
+  /** Send settings to the server */
+  fetch(settingsApiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userSettings }),
+  })
+    .then((response) => {
+      if (!response.ok) throw new Error("Failed to save settings");
+      alert("Settings saved successfully!");
+    })
+    .catch((error) => {
+      console.error("Error saving settings:", error);
+      alert("Failed to save settings.");
+    });
 });

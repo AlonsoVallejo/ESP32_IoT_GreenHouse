@@ -98,6 +98,8 @@ app.get("/", (req, res) => {
  * Endpoint to receive and store data from ESP32 devices
  */
 app.post("/updateData", async (req, res) => {
+  console.log("Raw request body:", req.body); // Log the raw request body
+
   const sensorData = req.body;
 
   /** Validate received data */
@@ -227,6 +229,96 @@ app.get("/getHistoryData", async (req, res) => {
     } catch (error) {
       console.error("Error fetching history data:", error);
       res.status(500).send({ error: "Error fetching history data from Firebase." });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
+/** 
+ * Endpoint to save settings
+ */
+app.post("/saveSettings", async (req, res) => {
+  const { userSettings } = req.body;
+
+  /** Validate input */
+  if (!userSettings) {
+    return res.status(400).send({ error: "Invalid input data" });
+  }
+
+  console.log("Received user settings:", userSettings);
+
+  if (db) {
+    try {
+      /** Save settings to Firebase under the 'settings' path */
+      await db.ref("settings").set(userSettings);
+
+      console.log("Settings saved to Firebase:", userSettings);
+      res.send({ message: "Settings saved successfully!" });
+    } catch (error) {
+      console.error("Error saving settings to Firebase:", error);
+      res.status(500).send({ error: "Error saving settings to Firebase." });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
+/** 
+ * Endpoint to save settings only if they do not already exist
+ */
+app.post("/saveDefaultSettings", async (req, res) => {
+  const { defaultSettings } = req.body;
+
+  /** Validate input */
+  if (!defaultSettings) {
+    return res.status(400).send({ error: "Invalid input data" });
+  }
+
+  console.log("Received default settings:", defaultSettings);
+
+  if (db) {
+    try {
+      /** Check if the 'settings' JSON package already exists */
+      const snapshot = await db.ref("settings").once("value");
+      const existingSettings = snapshot.val();
+
+      if (existingSettings) {
+        console.log("Settings already exist in the database. Skipping default settings save.");
+        res.send({ message: "Settings already exist. Default settings were not saved." });
+      } else {
+        /** Save default settings to Firebase under the 'settings' path */
+        await db.ref("settings").set(defaultSettings);
+        console.log("Default settings saved to Firebase:", defaultSettings);
+        res.send({ message: "Default settings saved successfully!" });
+      }
+    } catch (error) {
+      console.error("Error saving default settings to Firebase:", error);
+      res.status(500).send({ error: "Error saving default settings to Firebase." });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
+/** 
+ * Endpoint to fetch current settings from Firebase
+ */
+app.get("/getSettings", async (req, res) => {
+  if (db) {
+    try {
+      /** Fetch settings from Firebase */
+      const snapshot = await db.ref("settings").once("value");
+      const settings = snapshot.val();
+
+      if (settings) {
+        res.send(settings); /** Send the settings to the frontend */
+      } else {
+        res.status(404).send({ error: "No settings found in the database." });
+      }
+    } catch (error) {
+      console.error("Error fetching settings from Firebase:", error);
+      res.status(500).send({ error: "Error fetching settings from Firebase." });
     }
   } else {
     res.status(500).send({ error: "Firebase is not initialized." });

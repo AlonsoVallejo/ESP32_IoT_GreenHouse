@@ -25,7 +25,7 @@ using namespace std;
 #define TASK_CORE_0 (0)
 #define TASK_CORE_1 (1)
 
-const char* serverUrl = "http://192.168.100.9:3000/updateData"; /* Your server API URL for POST data; TODO: Use firebase functions */
+const char* serverUrl = "http://192.168.100.9:3000/"; /* Base URL for the backend server */
 const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
 const char* password = "3kK4H6W48P";
 
@@ -169,6 +169,13 @@ void TaskSendDataToServer(void* pvParameters) {
             if (!wifiConnectedMessagePrinted) {
                 LogSerialn("WiFi connected! ESP32 IP Address: " + data->wifiManager->getWiFiLocalIp().toString(), debug);
                 wifiConnectedMessagePrinted = true; 
+
+                /* Send default settings to the backend */
+                LogSerialn("Sending default settings to the backend...", debug);
+                data->SrvClient->sendDefaultSettings( DFLT_MAX_LVL_PERCENTAGE, 
+                                                      DFLT_MIN_LVL_PERCENTAGE, 
+                                                      DFLT_SENSOR_HOT_TEMP_C, 
+                                                      DFLT_SENSOR_LOW_HUMIDITY);
             }
 
             /* Send data to Firebase server */

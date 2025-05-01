@@ -9,6 +9,23 @@
 </head>
 <body>
   <h1>🌱 GreenHouse Monitoring System</h1>
+  <div class="settings-icon" id="settings-icon">
+    <i class="fas fa-wrench"></i>
+  </div>
+  <div class="settings-menu" id="settings-menu" style="display: none;">
+    <h3>System Settings</h3>
+    <form id="settings-form">
+      <label for="min-level">Min Level (%):</label>
+      <input type="number" id="min-level" name="min-level" placeholder="Enter min level" />
+      <label for="max-level">Max Level (%):</label>
+      <input type="number" id="max-level" name="max-level" placeholder="Enter max level" />
+      <label for="low-humidity">Low Humidity (%):</label>
+      <input type="number" id="low-humidity" name="low-humidity" placeholder="Enter low humidity" />
+      <label for="hot-temperature">Hot Temperature (°C):</label>
+      <input type="number" id="hot-temperature" name="hot-temperature" placeholder="Enter hot temperature" />
+      <button type="submit">Save</button>
+    </form>
+  </div>
   <div class="container">
     <div class="group" id="group1">
       <h2>🔆 Light, PIR & Lamp</h2>

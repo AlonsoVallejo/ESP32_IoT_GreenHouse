@@ -5,12 +5,6 @@
 
 #define SENSOR_PIR_COOL_DOWN_TIME (5000) 
 
-#define MAX_LVL_PERCENTAGE (90) 
-#define MIN_LVL_PERCENTAGE (20) 
-
-#define SENSOR_HOT_TEMP_C   (30)
-#define SENSOR_LOW_HUMIDITY (15) 
-
 /**
  * @brief Handles the activation and deactivation of the lamp based on PIR sensor and light sensor states.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
@@ -81,9 +75,9 @@ void handlePumpActivation(SystemData* data) {
             pumpState = false;
         } else {
             data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
-            if (levelPercentage <= MIN_LVL_PERCENTAGE) {
+            if (levelPercentage <= DFLT_MIN_LVL_PERCENTAGE) {
                 pumpState = true;
-            } else if (levelPercentage >= MAX_LVL_PERCENTAGE) {
+            } else if (levelPercentage >= DFLT_MAX_LVL_PERCENTAGE) {
                 pumpState = false;
             }
         }
@@ -112,12 +106,12 @@ void handleIrrigatorControl(SystemData* data) {
         
         // Check for valid temperature and humidity values
         if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100) {
-            if (temperature >= SENSOR_HOT_TEMP_C && humidity <= SENSOR_LOW_HUMIDITY) {
+            if (temperature >= DFLT_SENSOR_HOT_TEMP_C && humidity <= DFLT_SENSOR_LOW_HUMIDITY) {
                 if (!irrigatorState) {
                     data->irrigator->SetOutState(true);
                     irrigatorState = true;
                 }
-            } else if (temperature < SENSOR_HOT_TEMP_C - 2 || humidity > SENSOR_LOW_HUMIDITY + 5) { /* Add hysteresis to prevent frequent toggling */
+            } else if (temperature < DFLT_SENSOR_HOT_TEMP_C - 2 || humidity > DFLT_SENSOR_LOW_HUMIDITY + 5) { /* Add hysteresis to prevent frequent toggling */
                 if (irrigatorState) {
                     data->irrigator->SetOutState(false);
                     irrigatorState = false;
