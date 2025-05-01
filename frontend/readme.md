@@ -1,4 +1,3 @@
-
 ---
 
 # ESP32 IoT Greenhouse Monitoring System - Frontend
@@ -28,6 +27,12 @@ The purpose of this project is to:
 - **Responsive Design**:
   - Optimized for desktop and mobile devices.
 
+- **Default Settings Management**:
+  - Automatically displays default settings if no user-defined settings exist in the backend.
+
+- **Settings Update Integration**:
+  - Reflects updated settings fetched from the backend every 15 seconds.
+
 - **Future Hosting**:
   - The frontend is designed to be hosted on a public platform like Firebase Hosting for easy access.
 
@@ -38,9 +43,11 @@ The purpose of this project is to:
 The frontend communicates with a backend server that:
 - Receives data from the ESP32 via HTTP POST requests.
 - Stores data in a Firebase Realtime Database.
-- Provides endpoints for fetching the latest data and historical data:
+- Provides endpoints for fetching the latest data, historical data, and settings:
   - `/getLastData`: Fetches the most recent data for sensors or actuators.
   - `/getHistoryData`: Fetches the last 60 entries for sensors or actuators.
+  - `/getSettings`: Fetches the current settings from the backend.
+  - `/saveDefaultSettings`: Saves default settings to the backend if no settings exist.
 
 ### Backend Requirements
 - The backend must be publicly accessible for the frontend to fetch data.
@@ -87,10 +94,10 @@ This ensures compatibility with the hosted frontend.
    ```
 
 6. **Test End-to-End Integration**:
-   - Deploy new Firebase-hosted frontend.
-   ```bash
-   firebase deploy
-   ```
+   - Deploy the updated frontend to Firebase Hosting:
+     ```bash
+     firebase deploy
+     ```
    - Open the Firebase-hosted frontend (e.g., `https://<your-firebase-app>.web.app`).
    - Ensure the frontend successfully fetches data from the ngrok-exposed backend.
 
@@ -146,11 +153,17 @@ This ensures compatibility with the hosted frontend.
 4. **Deployment Workflow**:
    - Always test the end-to-end setup after updating the `apiUrl` in the frontend and redeploying to Firebase Hosting.
 
-5. **Temporary solution**:
-   - Using ngrok is a temporary fix until firebase function are deployed. It is necessary a paid account.
+5. **Temporary Solution**:
+   - Using ngrok is a temporary fix until Firebase Functions are deployed. A paid Firebase plan is required for this.
 
+---
 
 ## Features Recap
 
 - **Real-Time Dashboard**: Provides up-to-date sensor and actuator information.
+- **Default Settings Management**: Automatically displays default settings if no user-defined settings exist.
+- **Settings Update Integration**: Reflects updated settings fetched from the backend every 15 seconds.
 - **Cross-Origin Compatibility**: Designed to work seamlessly with Firebase Hosting and ngrok.
+- **Responsive Design**: Optimized for both desktop and mobile devices.
+
+---

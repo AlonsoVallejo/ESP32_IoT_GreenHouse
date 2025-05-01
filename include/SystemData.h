@@ -51,6 +51,12 @@ struct SystemData {
     bool PirPresenceDetected;
     pb1Selector currentSelector;
     uint16_t levelPercentage;
+
+    /** Dynamically updated settings */
+    uint8_t maxLevelPercentage; /* Updated max level percentage */
+    uint8_t minLevelPercentage; /* Updated min level percentage */
+    uint8_t hotTemperature;     /* Updated hot temperature */
+    uint8_t lowHumidity;        /* Updated low humidity */
 };
 
 /* Declare the mutex globally so it can be used across files */

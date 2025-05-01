@@ -3,6 +3,7 @@
 #include "ProcessMgr.h"
 #include "DisplayMgr.h"
 #include "LogMgr.h"
+#include "SrvClientMgr.h" 
 
 using namespace std;
 
@@ -160,6 +161,8 @@ void TaskSendDataToServer(void* pvParameters) {
     bool wifiConnectedMessagePrinted = false; /* Flag to track if the "WiFi connected!" message has been printed */ 
     bool debug = true;
 
+    static unsigned long lastSettingsFetchTime = 0;
+
     for (;;) {
         if (data->wifiManager->IsWiFiConnected()) {
             wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
@@ -170,12 +173,21 @@ void TaskSendDataToServer(void* pvParameters) {
                 LogSerialn("WiFi connected! ESP32 IP Address: " + data->wifiManager->getWiFiLocalIp().toString(), debug);
                 wifiConnectedMessagePrinted = true; 
 
-                /* Send default settings to the backend */
-                LogSerialn("Sending default settings to the backend...", debug);
-                data->SrvClient->sendDefaultSettings( DFLT_MAX_LVL_PERCENTAGE, 
-                                                      DFLT_MIN_LVL_PERCENTAGE, 
-                                                      DFLT_SENSOR_HOT_TEMP_C, 
-                                                      DFLT_SENSOR_LOW_HUMIDITY);
+                /* Check if settings exist in the database */
+                if (!checkSettingsExistence(data, serverUrl)) {
+                    /* Send default settings if they do not exist */
+                    LogSerialn("Sending default settings to the backend...", debug);
+                    sendDefaultSettings(data, serverUrl);
+                }
+
+                /* Fetch updated settings on initial connection */
+                fetchUpdatedSettings(data, serverUrl);
+            }
+
+            /* Periodically fetch updated settings */
+            if (currentMillis - lastSettingsFetchTime >= SUBTASK_INTERVAL_15_S) {
+                lastSettingsFetchTime = currentMillis;
+                fetchUpdatedSettings(data, serverUrl);
             }
 
             /* Send data to Firebase server */
@@ -247,7 +259,12 @@ void setup() {
         /* Variables */
         true,
         PB1_SELECT_DATA1,
-        0
+        0,
+        /* Initialize dynamic settings with default macro values */
+        DFLT_MAX_LVL_PERCENTAGE,
+        DFLT_MIN_LVL_PERCENTAGE,
+        DFLT_SENSOR_HOT_TEMP_C,
+        DFLT_SENSOR_LOW_HUMIDITY
     };
 
     /* Initialize the ServerSrvClient after systemData is fully constructed */ 

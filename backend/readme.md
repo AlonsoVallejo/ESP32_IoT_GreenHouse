@@ -1,4 +1,3 @@
-
 ---
 
 # Firebase Integration Server
@@ -12,6 +11,8 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
 
 - **Data Handling**: Receives data from ESP32 devices via HTTP POST requests and stores it in Firebase Realtime Database.
 - **Irrigation Control Integration**: Supports receiving and storing irrigation system status (`ON`/`OFF`) from ESP32 devices.
+- **Default Settings Management**: Automatically sends default settings to the database if no settings exist when the ESP32 connects to the backend.
+- **Settings Fetching**: Allows ESP32 devices to fetch updated settings from the database every 15 seconds.
 - **Connectivity Monitoring**: Periodically checks for internet connectivity and dynamically reinitializes Firebase when WiFi or internet is recovered.
 - **CST Timestamp Integration**: Automatically generates timestamps in the `America/Mexico_City` timezone for accurate data logging.
 - **Public Backend Exposure**: Allows the backend to be exposed to the internet using ngrok for testing and temporary public access.
@@ -37,6 +38,103 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
    ```
 
 4. Create and add your Firebase service account JSON credentials file as `esp32_project_serviceAccountKey.json` in the root folder.
+
+---
+
+## Backend Changes
+
+### New Endpoints
+
+#### `/getSettings`
+- **Method**: GET
+- **Description**: Checks if the `settings` JSON package exists in the database.
+- **Response**:
+  - If settings exist:
+    ```json
+    {
+      "maxLevel": 90,
+      "minLevel": 20,
+      "hotTemperature": 30,
+      "lowHumidity": 15
+    }
+    ```
+  - If settings do not exist:
+    ```json
+    {
+      "error": "No settings found in the database."
+    }
+    ```
+
+#### `/saveDefaultSettings`
+- **Method**: POST
+- **Description**: Saves default settings to the database if no settings exist.
+- **Request Body Example**:
+  ```json
+  {
+    "defaultSettings": {
+      "maxLevel": 90,
+      "minLevel": 20,
+      "hotTemperature": 30,
+      "lowHumidity": 15
+    }
+  }
+  ```
+- **Response**:
+  - Success:
+    ```json
+    {
+      "message": "Default settings saved successfully!"
+    }
+    ```
+  - Failure:
+    ```json
+    {
+      "error": "Failed to save default settings."
+    }
+    ```
+
+#### `/updateData`
+- **Method**: POST
+- **Description**: Stores sensor or actuator data in Firebase.
+- **Request Body Example**:
+  ```json
+  {
+    "type": "sensor",
+    "lvl": 90,
+    "tmp": 25.5,
+    "hum": 60,
+    "irr": 1
+  }
+  ```
+  - `irr`: Represents the irrigation system status (`1` for `ON`, `0` for `OFF`).
+
+#### `/getLastData`
+- **Method**: GET
+- **Description**: Retrieves the most recent sensor and actuator data from Firebase.
+- **Response Example**:
+  ```json
+  {
+    "sensorData": {
+      "lvl": 90,
+      "tmp": 25.5,
+      "hum": 60
+    },
+    "actuatorData": {
+      "irr": 1,
+      "lamp": 1
+    }
+  }
+  ```
+
+#### `/checkConnectivity`
+- **Method**: GET
+- **Description**: Checks the backend's internet connectivity status.
+- **Response Example**:
+  ```json
+  {
+    "status": "connected"
+  }
+  ```
 
 ---
 
@@ -114,24 +212,25 @@ To expose the local backend server to the internet:
    ```
    - Send JSON payload with sensor or actuator data, including irrigation status.
 
----
+4. Check for settings existence:
+   ```
+   GET http://<host>:<port>/getSettings
+   ```
 
-## Endpoint Details
+5. Save default settings:
+   ```
+   POST http://<host>:<port>/saveDefaultSettings
+   ```
 
-### `/updateData`
-- **Method**: POST
-- **Description**: Stores sensor or actuator data in Firebase.
-- **Request Body Example**:
-  ```json
-  {
-    "type": "sensor",
-    "lvl": 90,
-    "tmp": 25.5,
-    "hum": 60,
-    "irr": 1
-  }
-  ```
-  - `irr`: Represents the irrigation system status (`1` for `ON`, `0` for `OFF`).
+6. Retrieve the most recent data:
+   ```
+   GET http://<host>:<port>/getLastData
+   ```
+
+7. Check connectivity status:
+   ```
+   GET http://<host>:<port>/checkConnectivity
+   ```
 
 ---
 
@@ -170,7 +269,7 @@ The server periodically checks internet connectivity every 10 seconds:
 ---
 
 ## Notes
-- Firebase functions is even not supported. Functions require paid plan option.
+- Firebase functions are not supported. Functions require a paid plan option.
 - Ensure Firebase credentials (`esp32_project_serviceAccountKey.json`) are valid.
 - Monitor server logs via PM2 to confirm connectivity changes and Firebase reinitialization.
 - Make sure your ESP32 devices send valid JSON payloads to the server, including the `irr` field for irrigation status.

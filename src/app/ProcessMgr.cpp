@@ -67,23 +67,20 @@ void handlePumpActivation(SystemData* data) {
         uint16_t levelValue = data->levelSensor->getSensorValue();
         uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) /
                                     ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
-        
-        /** Check if the level sensor value is in an invalid range */
+
         if (levelValue >= SENSOR_LVL_OPENCKT_V || levelValue <= SENSOR_LVL_STG_V) {
-            /** Sensor failure detected—turn Pump OFF to prevent misactivation */
             data->ledInd->SetOutState(LED_FAIL_INDICATE);
             pumpState = false;
         } else {
             data->ledInd->SetOutState(LED_NO_FAIL_INDICATE);
-            if (levelPercentage <= DFLT_MIN_LVL_PERCENTAGE) {
+            if (levelPercentage <= data->minLevelPercentage) {
                 pumpState = true;
-            } else if (levelPercentage >= DFLT_MAX_LVL_PERCENTAGE) {
+            } else if (levelPercentage >= data->maxLevelPercentage) {
                 pumpState = false;
             }
         }
 
         if (levelPercentage >= 100) {
-            // Ensure level percentage does not exceed 100%
             levelPercentage = 100;
         }
 
@@ -103,15 +100,14 @@ void handleIrrigatorControl(SystemData* data) {
     if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
         double temperature = data->tempHumSensor->getTemperature();
         double humidity = data->tempHumSensor->getHumidity();
-        
-        // Check for valid temperature and humidity values
+
         if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100) {
-            if (temperature >= DFLT_SENSOR_HOT_TEMP_C && humidity <= DFLT_SENSOR_LOW_HUMIDITY) {
+            if (temperature >= data->hotTemperature && humidity <= data->lowHumidity) {
                 if (!irrigatorState) {
                     data->irrigator->SetOutState(true);
                     irrigatorState = true;
                 }
-            } else if (temperature < DFLT_SENSOR_HOT_TEMP_C - 2 || humidity > DFLT_SENSOR_LOW_HUMIDITY + 5) { /* Add hysteresis to prevent frequent toggling */
+            } else if (temperature < data->hotTemperature - 2 || humidity > data->lowHumidity + 5) {
                 if (irrigatorState) {
                     data->irrigator->SetOutState(false);
                     irrigatorState = false;
