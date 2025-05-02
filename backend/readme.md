@@ -183,7 +183,7 @@ To expose the local backend server to the internet:
 6. **Update Frontend API URL**:
    Replace the local API URL in your frontend code with the generated ngrok URL:
    ```javascript
-   const apiUrl = "https://<your-ngrok-url>/getLastData";
+   const apiUrl = "https://<your-ngrok-url>/";
    ```
 
 7. **Test Integration**:
