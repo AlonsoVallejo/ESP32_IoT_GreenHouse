@@ -2,7 +2,7 @@
  * API URL pointing to the backend server exposed via ngrok.
  * Replace with the current ngrok URL or your local backend URL for testing.
  */
-//const apiUrl = "https://c0b1-2806-261-484-b18-f388-fad9-1f72-76b2.ngrok-free.app/getLastData"; 
+//const apiUrl = "https://c0b1-2806-261-484-b18-f388-fad9-1f72-76b2.ngrok-free.app/"; 
 
 /** Uncomment this line for local testing with the backend */
 const apiUrl = "http://localhost:3000/";
