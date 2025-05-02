@@ -254,7 +254,6 @@ void setup() {
 
     /* Init DHT11 sensor */
     systemData.sensorMgr->getTempHumSensor()->dhtSensorInit();
-    systemData.sensorMgr->getTempHumSensor()->dhtSensorInit();
 
     LogSerialn("Sensor/Actuator/Display/WiFi objects initialized", true);
 
