@@ -82,7 +82,7 @@ This ensures compatibility with the hosted frontend.
 4. **Update the frontend API URL**:
    Replace the local API URL in your frontend code with the generated ngrok public URL:
    ```javascript
-   const apiUrl = "https://<your-ngrok-url>/getLastData";
+   const apiUrl = "https://<your-ngrok-url>/";
    ```
 
 5. **Bypass ngrok Browser Warning**:
@@ -124,7 +124,7 @@ This ensures compatibility with the hosted frontend.
 
 3. Set the backend URL:
    ```javascript
-   const apiUrl = "https://<your-ngrok-url>/getLastData";
+   const apiUrl = "https://<your-ngrok-url>/";
    ```
 
 4. Initialize Firebase Hosting:
