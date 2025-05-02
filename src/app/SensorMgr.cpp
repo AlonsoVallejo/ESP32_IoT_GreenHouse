@@ -3,12 +3,12 @@
 /**
  * @brief Constructs the SensorManager object and initializes all sensors.
  * @param levelSensor Pointer to the AnalogSensor object for the level sensor.
- * @param tempHumSensor Pointer to the TemperatureHumiditySensor object.
+ * @param tempHumSensor Pointer to the Dht11TempHumSens object.
  * @param pirSensor Pointer to the DigitalSensor object for the PIR sensor.
  * @param lightSensor Pointer to the DigitalSensor object for the light sensor.
  * @param buttonSelector Pointer to the DigitalSensor object for the button selector.
  */
-SensorManager::SensorManager(AnalogSensor* levelSensor, TemperatureHumiditySensor* tempHumSensor,
+SensorManager::SensorManager(AnalogSensor* levelSensor, Dht11TempHumSens* tempHumSensor,
                              DigitalSensor* pirSensor, DigitalSensor* lightSensor, DigitalSensor* buttonSelector)
     : levelSensor(levelSensor), tempHumSensor(tempHumSensor), pirSensor(pirSensor),
       lightSensor(lightSensor), buttonSelector(buttonSelector) {}
@@ -23,7 +23,7 @@ void SensorManager::readLevelSensor() {
 /**
  * @brief Reads the temperature and humidity sensors and updates the internal values.
  */
-void SensorManager::readTemperatureHumiditySensor() {
+void SensorManager::readDht11TempHumSens() {
     temperature = tempHumSensor->readValueTemperature();
     humidity = tempHumSensor->readValueHumidity();
 }
@@ -98,9 +98,9 @@ bool SensorManager::getButtonSelectorValue() const {
 }
 
 /**
- * @brief Gets the pointer to the TemperatureHumiditySensor object.
- * @return Pointer to the TemperatureHumiditySensor object.
+ * @brief Gets the pointer to the Dht11TempHumSens object.
+ * @return Pointer to the Dht11TempHumSens object.
  */
-TemperatureHumiditySensor* SensorManager::getTempHumSensor() const {
+Dht11TempHumSens* SensorManager::getTempHumSensor() const {
     return tempHumSensor;
 }

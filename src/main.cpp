@@ -49,7 +49,7 @@ void TaskReadSensors(void* pvParameters) {
         /* Read temperature and humidity periodically */
         if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2000_MS) {
             lastTempHumReadTime = currentMillis;
-            data->sensorMgr->readTemperatureHumiditySensor();
+            data->sensorMgr->readDht11TempHumSens();
         }
 
         /* Protect shared variable access */
@@ -217,7 +217,7 @@ void setup() {
     static SystemData systemData = {
         new SensorManager(
             new AnalogSensor(SENSOR_LVL_PIN),
-            new TemperatureHumiditySensor(SENSOR_HUM_TEMP_PIN),
+            new Dht11TempHumSens(SENSOR_HUM_TEMP_PIN),
             new DigitalSensor(SENSOR_PIR_PIN),
             new DigitalSensor(SENSOR_LDR_PIN),
             new DigitalSensor(SENSOR_PB_SELECT_PIN)

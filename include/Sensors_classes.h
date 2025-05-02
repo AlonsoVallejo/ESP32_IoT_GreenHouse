@@ -22,12 +22,12 @@ public:
     double getVoltage();
 };
 
-class TemperatureHumiditySensor : public Sensor, public dth11Sensor {
+class Dht11TempHumSens : public Sensor, public dth11Sensor {
 private:
     double temperature; 
     double humidity;    
 public:
-    TemperatureHumiditySensor(uint8_t pin);
+    Dht11TempHumSens(uint8_t pin);
     uint16_t readRawValue() override;
     double readValueTemperature();
     double readValueHumidity();

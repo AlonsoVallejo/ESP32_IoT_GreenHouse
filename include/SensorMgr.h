@@ -5,11 +5,11 @@
 
 class SensorManager {
 public:
-    SensorManager(AnalogSensor* levelSensor, TemperatureHumiditySensor* tempHumSensor,
+    SensorManager(AnalogSensor* levelSensor, Dht11TempHumSens* tempHumSensor,
                   DigitalSensor* pirSensor, DigitalSensor* lightSensor, DigitalSensor* buttonSelector);
 
     void readLevelSensor();
-    void readTemperatureHumiditySensor();
+    void readDht11TempHumSens();
     void readPirSensor();
     void readLightSensor();
     void readButtonSelector();
@@ -21,11 +21,11 @@ public:
     bool getLightSensorValue() const;
     bool getButtonSelectorValue() const;
 
-    TemperatureHumiditySensor* getTempHumSensor() const;
+    Dht11TempHumSens* getTempHumSensor() const;
 
 private:
     AnalogSensor* levelSensor;
-    TemperatureHumiditySensor* tempHumSensor;
+    Dht11TempHumSens* tempHumSensor;
     DigitalSensor* pirSensor;
     DigitalSensor* lightSensor;
     DigitalSensor* buttonSelector;

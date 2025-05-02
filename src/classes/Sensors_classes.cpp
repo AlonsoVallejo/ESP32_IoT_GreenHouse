@@ -43,14 +43,14 @@ double AnalogSensor::getVoltage() {
  * @brief Initializes a temperature and humidity sensor.
  * @param pin The input pin connected to the sensor.
  */
-TemperatureHumiditySensor::TemperatureHumiditySensor(uint8_t pin) 
+Dht11TempHumSens::Dht11TempHumSens(uint8_t pin) 
     : Sensor(pin), dth11Sensor(pin), temperature(0), humidity(0) {}
 
 /**
  * @brief Reads the sensor but returns a default value (base class compliance).
  * @return Placeholder value.
  */
-uint16_t TemperatureHumiditySensor::readRawValue() {
+uint16_t Dht11TempHumSens::readRawValue() {
     return 0xFFFF;
 }
 
@@ -58,7 +58,7 @@ uint16_t TemperatureHumiditySensor::readRawValue() {
  * @brief Reads the humidity measurement from the sensor.
  * @return Humidity percentage as a float. Returns a default value if the value is invalid.
  */
-double TemperatureHumiditySensor::readValueHumidity() {
+double Dht11TempHumSens::readValueHumidity() {
     double humidity = dth11Sensor::readHumidity();
     if (humidity < 0) { // Check for default invalid value
         return this->humidity; // Return last valid humidity
@@ -71,7 +71,7 @@ double TemperatureHumiditySensor::readValueHumidity() {
  * @brief Reads the temperature measurement from the sensor.
  * @return Temperature in degrees Celsius as a float. Returns a default value if the value is invalid.
  */
-double TemperatureHumiditySensor::readValueTemperature() {
+double Dht11TempHumSens::readValueTemperature() {
     double temperature = dth11Sensor::readTemperature();
     if (temperature < 0) { // Check for default invalid value
         return this->temperature; // Return last valid temperature
@@ -84,7 +84,7 @@ double TemperatureHumiditySensor::readValueTemperature() {
  * @brief Retrieves the last recorded temperature value.
  * @return Temperature in degrees Celsius.
  */
-double TemperatureHumiditySensor::getTemperature() const {
+double Dht11TempHumSens::getTemperature() const {
     return temperature;
 }
 
@@ -92,7 +92,7 @@ double TemperatureHumiditySensor::getTemperature() const {
  * @brief Retrieves the last recorded humidity value.
  * @return Humidity percentage.
  */
-double TemperatureHumiditySensor::getHumidity() const {
+double Dht11TempHumSens::getHumidity() const {
     return humidity;
 }
 
