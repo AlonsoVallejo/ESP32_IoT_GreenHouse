@@ -44,7 +44,14 @@ double AnalogSensor::getVoltage() {
  * @param pin The input pin connected to the sensor.
  */
 Dht11TempHumSens::Dht11TempHumSens(uint8_t pin) 
-    : Sensor(pin), dth11Sensor(pin), temperature(0), humidity(0) {}
+    : Sensor(pin), temperature(0), humidity(0) {}
+
+/**
+ * @brief Initializes the DHT11 sensor.
+ */
+void Dht11TempHumSens::dhtSensorInit() {
+    TempHumSens.setup(getPin(), DHTesp::DHT11); // Initialize the DHT11 sensor
+}
 
 /**
  * @brief Reads the sensor but returns a default value (base class compliance).
@@ -59,8 +66,8 @@ uint16_t Dht11TempHumSens::readRawValue() {
  * @return Humidity percentage as a float. Returns a default value if the value is invalid.
  */
 double Dht11TempHumSens::readValueHumidity() {
-    double humidity = dth11Sensor::readHumidity();
-    if (humidity < 0) { // Check for default invalid value
+    float humidity = TempHumSens.getHumidity();
+    if (isnan(humidity)) { // Check for invalid value
         return this->humidity; // Return last valid humidity
     }
     this->humidity = humidity; // Store the new humidity
@@ -72,11 +79,11 @@ double Dht11TempHumSens::readValueHumidity() {
  * @return Temperature in degrees Celsius as a float. Returns a default value if the value is invalid.
  */
 double Dht11TempHumSens::readValueTemperature() {
-    double temperature = dth11Sensor::readTemperature();
-    if (temperature < 0) { // Check for default invalid value
+    float temperature = TempHumSens.getTemperature();
+    if (isnan(temperature)) { // Check for invalid value
         return this->temperature; // Return last valid temperature
     }
-    this->temperature = temperature; // Store the new temperature 
+    this->temperature = temperature; // Store the new temperature
     return temperature;
 }
 

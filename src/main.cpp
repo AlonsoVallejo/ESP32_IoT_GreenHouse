@@ -7,7 +7,8 @@
 
 using namespace std;
 
-#define SENSOR_LVL_PIN          (SHIELD_POTENTIOMETER_VP)
+/* Current used GPIOs for sensors */
+#define SENSOR_LVL_PIN          (SHIELD_POTENTIOMETER_VP_D36)
 #define SENSOR_HUM_TEMP_PIN     (SHIELD_DAC1_D25)
 #define SENSOR_LDR_PIN          (SHIELD_DIMMER_ZC_D5) 
 #define SENSOR_PIR_PIN          (SHIELD_DHT11_D13)
@@ -16,12 +17,15 @@ using namespace std;
 #define ACTUATOR_IRRIGATOR_PIN  (SHIELD_RELAY1_D4)
 #define ACTUATOR_PUMP_PIN       (SHIELD_RELAY2_D2)
 #define ACTUATOR_LAMP_PIN       (SHIELD_LED3_D12)
+#define OLED_DISPLAY_SCL_PIN    (SHIELD_OLED_SCL_D22)
+#define OLED_DISPLAY_SDA_PIN    (SHIELD_OLED_SDA_D21)
 
 #define SUBTASK_INTERVAL_100_MS  (100)
 #define SUBTASK_INTERVAL_500_MS  (500)
 #define SUBTASK_INTERVAL_1000_MS (1000)     
 #define SUBTASK_INTERVAL_2000_MS (2000)  
 #define SUBTASK_INTERVAL_15_S    (15000)  
+
 
 #define TASK_CORE_0 (0)
 #define TASK_CORE_1 (1)
@@ -249,6 +253,7 @@ void setup() {
     systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
 
     /* Init DHT11 sensor */
+    systemData.sensorMgr->getTempHumSensor()->dhtSensorInit();
     systemData.sensorMgr->getTempHumSensor()->dhtSensorInit();
 
     LogSerialn("Sensor/Actuator/Display/WiFi objects initialized", true);

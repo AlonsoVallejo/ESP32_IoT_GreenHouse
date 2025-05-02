@@ -2,7 +2,7 @@
 #define SENSOR__CLASSES_H
 
 #include <Arduino.h>
-#include "dht11_sens_classes.h"
+#include "../lib/DTH11/src/DHTesp.h"
 
 class Sensor {
 private:
@@ -22,8 +22,9 @@ public:
     double getVoltage();
 };
 
-class Dht11TempHumSens : public Sensor, public dth11Sensor {
+class Dht11TempHumSens : public Sensor {
 private:
+    DHTesp TempHumSens; 
     double temperature; 
     double humidity;    
 public:
@@ -33,6 +34,7 @@ public:
     double readValueHumidity();
     double getTemperature() const;
     double getHumidity() const;
+    void dhtSensorInit();
 };
 
 class DigitalSensor : public Sensor {

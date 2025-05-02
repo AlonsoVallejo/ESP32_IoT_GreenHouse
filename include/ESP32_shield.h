@@ -19,7 +19,7 @@
 #define SHIELD_BUZZER_D15     (15)
 
 // Potentiometer
-#define SHIELD_POTENTIOMETER_VP  (36) // VP corresponds to GPIO36 on ESP32
+#define SHIELD_POTENTIOMETER_VP_D36  (36) // VP corresponds to GPIO36 on ESP32
 
 // Temperature Sensor (NTC 10K)
 #define SHIELD_TEMP_SENSOR_VN (39) // VN corresponds to GPIO39 on ESP32
