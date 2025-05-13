@@ -99,7 +99,7 @@ void handleIrrigatorControl(SystemData* data) {
         double temperature = data->sensorMgr->getTemperature();
         double humidity = data->sensorMgr->getHumidity();
 
-        if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100) {
+        if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100 && data->levelPercentage > data->minLevelPercentage) {
             if (temperature >= data->hotTemperature && humidity <= data->lowHumidity) {
                 if (!irrigatorState) {
                     data->actuatorMgr->setIrrigatorState(true);
