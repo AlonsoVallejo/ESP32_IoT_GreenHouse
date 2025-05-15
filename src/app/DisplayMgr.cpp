@@ -1,6 +1,22 @@
 #include "DisplayMgr.h"
 #include <Arduino.h>
 
+void displayUserGuide(void) {
+    
+}
+
+/**
+ * @brief Displays footer with labels for next screen and settings.
+ * @param oledDisplay Pointer to the OledDisplay object.
+ * @param nextLabel Label for the next screen.
+ * @param settingsLabel Label for settings.
+ */
+void displayFooter(OledDisplay* oledDisplay, const char* nextLabel, const char* settingsLabel) {
+    oledDisplay->SetdisplayData(0, 50, nextLabel);      
+    oledDisplay->SetdisplayData(50, 50, " ");          
+    oledDisplay->SetdisplayData(80, 50, settingsLabel);
+}
+
 /**
  * @brief Displays light sensor, PIR presence, and lamp state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
@@ -14,6 +30,8 @@ void displayLightAndPresence(SystemData* data) {
 
     data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
     data->oledDisplay->SetdisplayData(80, 20, data->actuatorMgr->getLamp()->getOutstate() ? "ON" : "OFF");
+
+    displayFooter(data->oledDisplay, "Next", "Settings");
 }
 
 /**
@@ -40,6 +58,8 @@ void displayWaterLevelAndPump(SystemData* data) {
 
     data->oledDisplay->SetdisplayData(0, 20, " ");
     data->oledDisplay->SetdisplayData(80, 20, " ");
+
+    displayFooter(data->oledDisplay, "Next", "Settings");
 }
 
 /**
@@ -57,6 +77,8 @@ void displayTemperatureAndHumidity(SystemData* data) {
 
     data->oledDisplay->SetdisplayData(0, 20, "Irrigator: ");
     data->oledDisplay->SetdisplayData(80, 20, data->actuatorMgr->getIrrigator()->getOutstate() ? "ON" : "OFF");
+
+    displayFooter(data->oledDisplay, "Next", "Settings");
 }
 
 /**
@@ -68,6 +90,8 @@ void displayWiFiStatus(SystemData* data) {
     data->oledDisplay->SetdisplayData(0, 10, data->wifiManager->getSSID());
     data->oledDisplay->SetdisplayData(0, 20, "Status: ");
     data->oledDisplay->SetdisplayData(45, 20, data->wifiManager->IsWiFiConnected() ? "Connected" : "Disconnected");
+
+    displayFooter(data->oledDisplay, "Next", "Settings");
 }
 
 /**
@@ -88,7 +112,7 @@ void displaySettingsMenu(SystemData* data, uint8_t currentValue) {
     data->oledDisplay->SetdisplayData(0, 10, settings[data->currentSettingMenu]);
     data->oledDisplay->SetdisplayData(0, 20, "Value:");
     data->oledDisplay->SetdisplayData(50, 20, currentValue);
-    data->oledDisplay->SetdisplayData(0, 50, "Set");
+    data->oledDisplay->SetdisplayData(0, 50, "Param");
     data->oledDisplay->SetdisplayData(50, 50, "^ v");
-    data->oledDisplay->SetdisplayData(100, 50, "esc");
+    data->oledDisplay->SetdisplayData(100, 50, "save");
 }

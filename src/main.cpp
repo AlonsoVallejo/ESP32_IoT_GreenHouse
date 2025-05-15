@@ -79,24 +79,30 @@ void TaskReadSensors(void* pvParameters) {
             if (SelectbuttonState && (currentMillis - lastButtonPressTime > 300)) {
                 lastButtonPressTime = currentMillis;
                 if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
-                    /* Navigate through settings menu */ 
+                    /* Navigate through systems settings screen menu */ 
                     data->currentSettingMenu++;
                     if (data->currentSettingMenu >= sizeof(settings) / sizeof(settings[0])) {
-                        /* If last setting is reached, reset to default display */ 
-                        data->currentDisplayDataSelec = PB1_SELECT_DATA1;
+                        /* Reset to the first setting */
                         data->currentSettingMenu = 0;
                     }
                 } else {
+                    /* Change the display screen */
                     data->currentDisplayDataSelec = static_cast<pb1Selector>((data->currentDisplayDataSelec + 1) % PB1_SELECT_COUNT);
                 }
             }
 
             if (escButtonState && (currentMillis - lastButtonPressTime > 300)) {
                 lastButtonPressTime = currentMillis;
-                if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
-                    /* Exit settings menu and save changes */ 
+                if(data->currentDisplayDataSelec != PB1_SELECT_DATA5) {
+                    /* escButtonState displays system settings screen */
+                    data->currentDisplayDataSelec = PB1_SELECT_DATA5;
+                    data->currentSettingMenu = 0;
+                } else if(data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+                    /* escButtonState exits settings menu */
                     data->currentDisplayDataSelec = PB1_SELECT_DATA1;
                     data->currentSettingMenu = 0;
+                } else {
+                    /* Do nothing */
                 }
             }
 
