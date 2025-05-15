@@ -22,7 +22,8 @@ enum pb1Selector {
     PB1_SELECT_DATA3, /* Display temperature, humidity and irrigator data */
     PB1_SELECT_DATA4, /* Display WiFi status */
     PB1_SELECT_COUNT, /* Before this, the screens shall change every time select button is pressed */
-    PB1_SELECT_DATA5, /* Settings menu */
+    PB1_SELECT_DATA5, /* Level Settings menu */
+    PB1_SELECT_DATA6, /* Temperature and Humidity Settings menu */
 };
 
 /* Struct to store all system-related data */

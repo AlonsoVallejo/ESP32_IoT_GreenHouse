@@ -40,13 +40,6 @@ void TaskReadSensors(void* pvParameters) {
     uint32_t lastTempHumReadTime = 0;
     uint32_t lastButtonPressTime = 0;
 
-    uint8_t* settings[] = {
-        &data->maxLevelPercentage,
-        &data->minLevelPercentage,
-        &data->hotTemperature,
-        &data->lowHumidity
-    };
-
     for (;;) {
         uint32_t currentMillis = millis();
 
@@ -64,65 +57,7 @@ void TaskReadSensors(void* pvParameters) {
             lastTempHumReadTime = currentMillis;
             data->sensorMgr->readDht11TempHumSens();
         }
-
-        /* Protect shared variable access */
-        if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
-            bool SelectbuttonState = !(data->sensorMgr->getButtonSelectorValue()); /* (pressed = LOW, released = HIGH) */
-            bool escButtonState = !(data->sensorMgr->getButtonEscValue()); /* (pressed = LOW, released = HIGH) */
-            bool upButtonState = !(data->sensorMgr->getButtonUpValue()); /* (pressed = LOW, released = HIGH) */  
-            bool downButtonState = !(data->sensorMgr->getButtonDownValue()); /* (pressed = LOW, released = HIGH) */
-
-            if (SelectbuttonState && (currentMillis - lastButtonPressTime > 300)) {
-                lastButtonPressTime = currentMillis;
-                if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
-                    /* Navigate through systems settings screen menu */ 
-                    data->currentSettingMenu++;
-                    if (data->currentSettingMenu >= sizeof(settings) / sizeof(settings[0])) {
-                        /* Reset to the first setting */
-                        data->currentSettingMenu = 0;
-                    }
-                } else {
-                    /* Change the display screen */
-                    data->currentDisplayDataSelec = static_cast<pb1Selector>((data->currentDisplayDataSelec + 1) % PB1_SELECT_COUNT);
-                }
-            }
-
-            if (escButtonState && (currentMillis - lastButtonPressTime > 300)) {
-                lastButtonPressTime = currentMillis;
-                if(data->currentDisplayDataSelec != PB1_SELECT_DATA5) {
-                    /* escButtonState displays system settings screen */
-                    data->currentDisplayDataSelec = PB1_SELECT_DATA5;
-                    data->currentSettingMenu = 0;
-                } else if(data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
-                    /* escButtonState exits settings menu */
-                    data->currentDisplayDataSelec = PB1_SELECT_DATA1;
-                    data->currentSettingMenu = 0;
-                } else {
-                    /* Do nothing */
-                }
-            }
-
-            if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
-                if (upButtonState && (currentMillis - lastButtonPressTime > 300)) {
-                    lastButtonPressTime = currentMillis;
-                    /* Increment the current setting value */
-                    if (*settings[data->currentSettingMenu] < 100) {
-                        (*settings[data->currentSettingMenu])++;
-                    }
-                }
-
-                if (downButtonState && (currentMillis - lastButtonPressTime > 300)) {
-                    lastButtonPressTime = currentMillis;
-                    /* Decrement the current setting value */ 
-                    if (*settings[data->currentSettingMenu] > 0) {
-                        (*settings[data->currentSettingMenu])--;
-                    }
-                }
-            }
-
-            xSemaphoreGive(xSystemDataMutex);
-        }
-
+ 
         vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100 ms
     }
 }
@@ -132,13 +67,16 @@ void TaskProcessData(void* pvParameters) {
 
     for (;;) {
         /* Lamp activation logic */
-        handleLampActivation(data);
+        LampActivationCtrl(data);
 
         /* Pump activation logic */
-        handlePumpActivation(data);
+        PumpActivationCtrl(data);
 
         /* Irrigator Control */
-        handleIrrigatorControl(data);
+        IrrigatorActivationCtrl(data);
+
+        /* Button control logic */
+        pButtonsCtrl(data);
 
         vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
     }
@@ -158,13 +96,15 @@ void TaskControlActuators(void* pvParameters) {
 void TaskDisplay(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
     bool debug = true; // Enable or disable logging
-    uint8_t* settings[] = {
+    uint8_t* Levelsettings[] = {
         &data->maxLevelPercentage,
         &data->minLevelPercentage,
+    };
+    uint8_t* TempHumsettings[] = {
         &data->hotTemperature,
         &data->lowHumidity
     };
-    
+   
     for (;;) {
         switch (data->currentDisplayDataSelec) {
             case PB1_SELECT_DATA1:
@@ -180,7 +120,13 @@ void TaskDisplay(void* pvParameters) {
                 displayWiFiStatus(data);
                 break;
             case PB1_SELECT_DATA5:
-                displaySettingsMenu(data, *settings[data->currentSettingMenu]);
+                displayLevelSettings(data, *Levelsettings[data->currentSettingMenu]);
+                break;
+            case PB1_SELECT_DATA6:
+                displayTempHumSettings(data, *TempHumsettings[data->currentSettingMenu]);
+                break;
+            default:
+                displayLightAndPresence(data);
                 break;
         }
 
@@ -232,7 +178,8 @@ void TaskSendDataToServer(void* pvParameters) {
             }
 
             /* Check if system settins have been manually modified */
-            if (previousDisplayDataSelec == PB1_SELECT_DATA5 && data->currentDisplayDataSelec != PB1_SELECT_DATA5) {
+            if ( (previousDisplayDataSelec == PB1_SELECT_DATA5) && (data->currentDisplayDataSelec != PB1_SELECT_DATA5) || 
+                 (previousDisplayDataSelec == PB1_SELECT_DATA6) && (data->currentDisplayDataSelec != PB1_SELECT_DATA6) ) {
                 LogSerialn("Sending manual systems settings to the backend...", debug);
                 LogSerial("maxlvl: " + String(data->maxLevelPercentage), debug);
                 LogSerial(" minlvl: " + String(data->minLevelPercentage), debug);

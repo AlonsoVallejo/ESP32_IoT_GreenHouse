@@ -9,7 +9,7 @@
  * @brief Handles the activation and deactivation of the lamp based on PIR sensor and light sensor states.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
-void handleLampActivation(SystemData* data) {
+void LampActivationCtrl(SystemData* data) {
     static uint32_t lastPirTriggerTime = 0;
     static bool presenceDetected = false;
     static bool pirWentLow = false;
@@ -57,7 +57,7 @@ void handleLampActivation(SystemData* data) {
  * @brief Handles the activation and deactivation of the pump based on water level sensor readings.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
-void handlePumpActivation(SystemData* data) {
+void PumpActivationCtrl(SystemData* data) {
     static bool pumpState = false;
 
     if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
@@ -92,7 +92,7 @@ void handlePumpActivation(SystemData* data) {
  * @brief Handles the activation and deactivation of the irrigator based on temperature and humidity sensor readings.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
-void handleIrrigatorControl(SystemData* data) {
+void IrrigatorActivationCtrl(SystemData* data) {
     static bool irrigatorState = false;
 
     if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
@@ -113,6 +113,112 @@ void handleIrrigatorControl(SystemData* data) {
             /* If conditions are not met, keep the irrigator OFF */
             data->actuatorMgr->setIrrigatorState(false);
             irrigatorState = false;
+        }
+
+        xSemaphoreGive(xSystemDataMutex);
+    }
+}
+
+/**
+ * @brief processes button inputs for system control and settings.
+ * @param data Pointer to the SystemData structure containing sensor and actuator objects.
+ */
+void pButtonsCtrl(SystemData* data) {
+    static uint32_t lastButtonPressTime = 0;
+    static uint8_t currentSettingMenu = 0;
+    uint8_t* Levelsettings[] = {
+        &data->maxLevelPercentage,
+        &data->minLevelPercentage,
+    };
+    uint8_t* TempHumsettings[] = {
+        &data->hotTemperature,
+        &data->lowHumidity
+    };
+
+    /* Protect shared variable access */
+    if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
+        uint32_t currentMillis = millis();
+        bool SelectbuttonState = !(data->sensorMgr->getButtonSelectorValue()); /* (pressed = LOW, released = HIGH) */
+        bool escButtonState = !(data->sensorMgr->getButtonEscValue()); /* (pressed = LOW, released = HIGH) */
+        bool upButtonState = !(data->sensorMgr->getButtonUpValue()); /* (pressed = LOW, released = HIGH) */  
+        bool downButtonState = !(data->sensorMgr->getButtonDownValue()); /* (pressed = LOW, released = HIGH) */
+
+        if (SelectbuttonState && (currentMillis - lastButtonPressTime > 300)) {
+            lastButtonPressTime = currentMillis;
+            if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+                /* Navigate through systems settings screen menu */ 
+                data->currentSettingMenu++;
+                if (data->currentSettingMenu >= sizeof(Levelsettings) / sizeof(Levelsettings[0])) {
+                    /* Reset to the first setting */
+                    data->currentSettingMenu = 0;
+                }
+            } else if(data->currentDisplayDataSelec == PB1_SELECT_DATA6) {
+                /* Navigate through temperature and humidity settings screen menu */
+                data->currentSettingMenu++;
+                if (data->currentSettingMenu >= sizeof(TempHumsettings) / sizeof(TempHumsettings[0])) {
+                    /* Reset to the first setting */
+                    data->currentSettingMenu = 0;
+                }
+            } else {
+                /* Change the display screen */
+                data->currentDisplayDataSelec = static_cast<pb1Selector>((data->currentDisplayDataSelec + 1) % PB1_SELECT_COUNT);
+            }
+        }
+
+        if (escButtonState && (currentMillis - lastButtonPressTime > 300)) {
+            lastButtonPressTime = currentMillis;
+            data->currentSettingMenu = 0;
+            if(data->currentDisplayDataSelec == PB1_SELECT_DATA2) {
+                /* If the current screen is the level and pump data screen, go to the temperature and humidity settings */
+                data->currentDisplayDataSelec = PB1_SELECT_DATA5;
+            } else if (data->currentDisplayDataSelec == PB1_SELECT_DATA3) {
+                /* If the current screen is the temperature and humidity data screen, go to the level settings */
+                data->currentDisplayDataSelec = PB1_SELECT_DATA6;
+            } else if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+                /* If the current screen is the settings screen, go back to the previous screen */
+                data->currentDisplayDataSelec = PB1_SELECT_DATA2;
+            } else if(data->currentDisplayDataSelec == PB1_SELECT_DATA6) {
+                /* If the current screen is the settings screen, go back to the previous screen */
+                data->currentDisplayDataSelec = PB1_SELECT_DATA3;
+            } else {
+                /* */
+            }
+        }
+
+        if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+            if (upButtonState && (currentMillis - lastButtonPressTime > 300)) {
+                lastButtonPressTime = currentMillis;
+                /* Increment the current setting value */
+                if (*Levelsettings[data->currentSettingMenu] < 100) {
+                    (*Levelsettings[data->currentSettingMenu])++;
+                }
+            }
+
+            if (downButtonState && (currentMillis - lastButtonPressTime > 300)) {
+                lastButtonPressTime = currentMillis;
+                /* Decrement the current setting value */ 
+                if (*Levelsettings[data->currentSettingMenu] > 0) {
+                    (*Levelsettings[data->currentSettingMenu])--;
+                }
+            }
+        } else if (data->currentDisplayDataSelec == PB1_SELECT_DATA6) {
+            if (upButtonState && (currentMillis - lastButtonPressTime > 300)) {
+                lastButtonPressTime = currentMillis;
+                /* Increment the current setting value */
+                if (*TempHumsettings[data->currentSettingMenu] < 100) {
+                    (*TempHumsettings[data->currentSettingMenu])++;
+                }
+            }
+
+            if (downButtonState && (currentMillis - lastButtonPressTime > 300)) {
+                lastButtonPressTime = currentMillis;
+                /* Decrement the current setting value */ 
+                if (*TempHumsettings[data->currentSettingMenu] > 0) {
+                    (*TempHumsettings[data->currentSettingMenu])--;
+                }
+            }
+        } else {
+            /* Do nothing */
         }
 
         xSemaphoreGive(xSystemDataMutex);

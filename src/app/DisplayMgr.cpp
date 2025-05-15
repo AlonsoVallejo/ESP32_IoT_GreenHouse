@@ -8,13 +8,25 @@ void displayUserGuide(void) {
 /**
  * @brief Displays footer with labels for next screen and settings.
  * @param oledDisplay Pointer to the OledDisplay object.
- * @param nextLabel Label for the next screen.
- * @param settingsLabel Label for settings.
+ * @param ltbottom Label for the left bottom corner.
+ * @param midbottom Label for the middle bottom corner.
+ * @param rtbottom Label for the right bottom corner.
  */
-void displayFooter(OledDisplay* oledDisplay, const char* nextLabel, const char* settingsLabel) {
-    oledDisplay->SetdisplayData(0, 50, nextLabel);      
-    oledDisplay->SetdisplayData(50, 50, " ");          
-    oledDisplay->SetdisplayData(80, 50, settingsLabel);
+void displayFooter(OledDisplay* oledDisplay, const char* ltbottom, const char* midbottom, const char* rtbottom) {
+    const uint16_t displayWidth = SCREEN_WIDTH;
+    const uint16_t y = 50;
+
+    uint16_t ltWidth = oledDisplay->getStringWidth(ltbottom);
+    uint16_t midWidth = oledDisplay->getStringWidth(midbottom);
+    uint16_t rtWidth = oledDisplay->getStringWidth(rtbottom);
+
+    uint16_t ltX = 0;
+    uint16_t midX = (displayWidth - midWidth) / 2;
+    uint16_t rtX = displayWidth - rtWidth;
+
+    oledDisplay->SetdisplayData(ltX, y, ltbottom);
+    oledDisplay->SetdisplayData(midX, y, midbottom);
+    oledDisplay->SetdisplayData(rtX, y, rtbottom);
 }
 
 /**
@@ -31,7 +43,7 @@ void displayLightAndPresence(SystemData* data) {
     data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
     data->oledDisplay->SetdisplayData(80, 20, data->actuatorMgr->getLamp()->getOutstate() ? "ON" : "OFF");
 
-    displayFooter(data->oledDisplay, "Next", "Settings");
+    displayFooter(data->oledDisplay, "Next", " ", "");
 }
 
 /**
@@ -59,7 +71,7 @@ void displayWaterLevelAndPump(SystemData* data) {
     data->oledDisplay->SetdisplayData(0, 20, " ");
     data->oledDisplay->SetdisplayData(80, 20, " ");
 
-    displayFooter(data->oledDisplay, "Next", "Settings");
+    displayFooter(data->oledDisplay, "Next", " " , "Settings");
 }
 
 /**
@@ -78,7 +90,7 @@ void displayTemperatureAndHumidity(SystemData* data) {
     data->oledDisplay->SetdisplayData(0, 20, "Irrigator: ");
     data->oledDisplay->SetdisplayData(80, 20, data->actuatorMgr->getIrrigator()->getOutstate() ? "ON" : "OFF");
 
-    displayFooter(data->oledDisplay, "Next", "Settings");
+    displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
 
 /**
@@ -91,7 +103,7 @@ void displayWiFiStatus(SystemData* data) {
     data->oledDisplay->SetdisplayData(0, 20, "Status: ");
     data->oledDisplay->SetdisplayData(45, 20, data->wifiManager->IsWiFiConnected() ? "Connected" : "Disconnected");
 
-    displayFooter(data->oledDisplay, "Next", "Settings");
+    displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
 
 /**
@@ -100,19 +112,36 @@ void displayWiFiStatus(SystemData* data) {
  * @param currentSettingMenu The current setting being displayed.
  * @param currentValue The current value of the setting.
  */
-void displaySettingsMenu(SystemData* data, uint8_t currentValue) {
+void displayLevelSettings(SystemData* data, uint8_t currentValue) {
     const char* settings[] = {
         "Max Level (%)",
         "Min Level (%)",
-        "Hot Temp (C)",
-        "Low Humidity (%)"
     };
 
     data->oledDisplay->SetdisplayData(0, 0, "System settings: ");
     data->oledDisplay->SetdisplayData(0, 10, settings[data->currentSettingMenu]);
     data->oledDisplay->SetdisplayData(0, 20, "Value:");
     data->oledDisplay->SetdisplayData(50, 20, currentValue);
-    data->oledDisplay->SetdisplayData(0, 50, "Param");
-    data->oledDisplay->SetdisplayData(50, 50, "^ v");
-    data->oledDisplay->SetdisplayData(100, 50, "save");
+
+    displayFooter(data->oledDisplay, "Param", "^ v", "save");
+}
+
+/**
+ * @brief Displays the current selector state.
+ * @param data Pointer to the SystemData structure containing sensor and actuator objects.
+ * @param currentSettingMenu The current setting being displayed.
+ * @param currentValue The current value of the setting.
+ */
+void displayTempHumSettings(SystemData* data, uint8_t currentValue) {
+    const char* settings[] = {
+        "Hot Temp (C)",
+        "Low Humidity (%)",
+    };
+    
+    data->oledDisplay->SetdisplayData(0, 0, "System settings: ");
+    data->oledDisplay->SetdisplayData(0, 10, settings[data->currentSettingMenu]);
+    data->oledDisplay->SetdisplayData(0, 20, "Value:");
+    data->oledDisplay->SetdisplayData(50, 20, currentValue);
+
+    displayFooter(data->oledDisplay, "Param", "^ v", "save");
 }

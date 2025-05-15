@@ -9,8 +9,9 @@
 #define DFLT_SENSOR_HOT_TEMP_C   (30) /* default value for hot temperature */
 #define DFLT_SENSOR_LOW_HUMIDITY (15) /* default value for low humidity */ 
 
-void handleLampActivation(SystemData* data);
-void handlePumpActivation(SystemData* data);
-void handleIrrigatorControl(SystemData* data);
+void LampActivationCtrl(SystemData* data);
+void PumpActivationCtrl(SystemData* data);
+void IrrigatorActivationCtrl(SystemData* data);
+void pButtonsCtrl(SystemData* data);
 
 #endif // PROCESS_MGR_H

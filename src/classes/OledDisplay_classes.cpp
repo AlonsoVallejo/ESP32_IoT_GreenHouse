@@ -102,3 +102,15 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, double data) {
 void OledDisplay::PrintdisplayData() {
     display.display(); // Refresh the display with new data
 }
+
+/**
+ * @brief Returns the pixel width of a string using the current font and text size.
+ * @param str The string to measure.
+ * @return The width in pixels.
+ */
+uint16_t OledDisplay::getStringWidth(const char* str) {
+    int16_t x1, y1;
+    uint16_t w, h;
+    display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
+    return w;
+}
