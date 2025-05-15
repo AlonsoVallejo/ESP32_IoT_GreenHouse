@@ -13,8 +13,21 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
   - Controls LEDs, relays, and the irrigation system based on environmental conditions.
 - **OLED Display**:
   - Updates the OLED screen with real-time sensor and actuator data.
+  - Includes a **Settings Menu** for manual configuration of system parameters.
 - **Data Transmission**:
   - Sends sensor and actuator data to the backend server every 15 seconds.
+
+### Settings Menu
+- Allows manual configuration of key system parameters:
+  - **Max Water Level (%)**
+  - **Min Water Level (%)**
+  - **Hot Temperature (°C)**
+  - **Low Humidity (%)**
+- Navigation:
+  - Use the **Select** button to cycle through parameters.
+  - Use the **Up** and **Down** buttons to adjust values.
+  - Use the **ESC** button to save changes and exit the menu.
+- Automatically saves updated settings to the backend server when exiting the menu.
 
 ### Irrigation Control
 - Automatically activates the irrigation system based on temperature and humidity thresholds.
@@ -26,6 +39,8 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
   - Automatically sends default settings to the database if no settings exist when the ESP32 connects to the backend.
 - **Settings Fetching**:
   - Allows the ESP32 to fetch updated settings from the database every 15 seconds.
+- **Manual Settings Management**:
+  - Receives updated settings from the ESP32 and overrides the current settings in the database.
 - **Data Storage**:
   - Receives data from the ESP32 via HTTP POST requests and stores it in Firebase Realtime Database.
 - **Timestamping**:
@@ -108,9 +123,11 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
    - Fetch updated settings every 15 seconds.
    - Read sensor data and update the OLED display.
    - Send sensor and actuator data to the backend server every 15 seconds.
+   - Allow manual configuration of system parameters via the **Settings Menu**.
 3. The backend server will:
    - Store the data in Firebase.
    - Add a timestamp in CST.
+   - Override current settings in the database with updated settings received from the ESP32.
 
 ---
 
@@ -162,6 +179,21 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
     "tmp": 25.5,
     "hum": 60,
     "irr": 1
+  }
+  ```
+
+### `/updateSettings`
+- **Method**: POST
+- **Description**: Updates the current settings in the database with new values received from the ESP32.
+- **Request Body Example**:
+  ```json
+  {
+    "updatedSettings": {
+      "maxLevel": 85,
+      "minLevel": 25,
+      "hotTemperature": 28,
+      "lowHumidity": 20
+    }
   }
   ```
 
