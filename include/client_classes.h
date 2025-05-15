@@ -19,7 +19,7 @@ public:
     void sendPayload();
     void sendDefaultSettings(uint8_t maxLevel, uint8_t minLevel, uint8_t hotTemp, uint8_t lowHumidity);
     void closeConnection();
-    void resetServer();
+    const char* getServerUrl();
 };
 
 #endif // CLIENT_CLASSES_H

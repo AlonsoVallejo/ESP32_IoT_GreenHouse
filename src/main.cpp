@@ -33,16 +33,12 @@ using namespace std;
 #define TASK_CORE_0 (0)
 #define TASK_CORE_1 (1)
 
-const char* serverUrl = "http://192.168.100.9:3000/"; /* Base URL for the backend server */
-const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
-const char* password = "3kK4H6W48P";
-
 SemaphoreHandle_t xSystemDataMutex;
 
 void TaskReadSensors(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
-    unsigned long lastTempHumReadTime = 0;
-    unsigned long lastButtonPressTime = 0;
+    uint32_t lastTempHumReadTime = 0;
+    uint32_t lastButtonPressTime = 0;
 
     uint8_t* settings[] = {
         &data->maxLevelPercentage,
@@ -52,7 +48,7 @@ void TaskReadSensors(void* pvParameters) {
     };
 
     for (;;) {
-        unsigned long currentMillis = millis();
+        uint32_t currentMillis = millis();
 
         /* Update individual sensor values */
         data->sensorMgr->readLevelSensor();
@@ -210,13 +206,14 @@ void TaskSendDataToServer(void* pvParameters) {
     bool wifiConnectedMessagePrinted = false; /* Flag to track if the "WiFi connected!" message has been printed */ 
     bool debug = true;
     pb1Selector previousDisplayDataSelec = data->currentDisplayDataSelec;
-    static unsigned long lastSettingsFetchTime = 0;
-
+    static uint32_t lastSettingsFetchTime = 0;
+    const char* serverUrl = data->SrvClient->getServerUrl();
+    
     for (;;) {
         if (data->wifiManager->IsWiFiConnected()) {
             wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
-            unsigned long currentMillis = millis();
-            static unsigned long lastSendTime = 0;
+            uint32_t currentMillis = millis();
+            static uint32_t lastSendTime = 0;
             
             /* Execute this every time wifi connection is restablished */
             if (!wifiConnectedMessagePrinted) {
@@ -305,29 +302,52 @@ void setup() {
         LogSerialn("Failed to create mutex", true);
     }
 
+    const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
+    const char* password = "3kK4H6W48P";
+    const char* BackendServerUrl = "http://192.168.100.9:3000/"; /* Base URL for the backend server */
+
+    static AnalogSensor analogSensor(SENSOR_LVL_PIN);
+    static Dht11TempHumSens dht11Sensor(SENSOR_HUM_TEMP_PIN);
+    static DigitalSensor pirSensor(SENSOR_PIR_PIN);
+    static DigitalSensor ldrSensor(SENSOR_LDR_PIN);
+    static DigitalSensor pbSelectSensor(SENSOR_PB_SELECT_PIN);
+    static DigitalSensor pbEscSensor(SENSOR_PB_ESC_PIN);
+    static DigitalSensor pbUpSensor(SENSOR_PB_UP_PIN);
+    static DigitalSensor pbDownSensor(SENSOR_PB_DOWN_PIN);
+
+    static SensorManager sensorManager(
+        &analogSensor,
+        &dht11Sensor,
+        &pirSensor,
+        &ldrSensor,
+        &pbSelectSensor,
+        &pbEscSensor,
+        &pbUpSensor,
+        &pbDownSensor
+    );
+
+    static Actuator ledFaultActuator(ACTUATOR_LED_FAULT_PIN);
+    static Actuator irrigatorActuator(ACTUATOR_IRRIGATOR_PIN);
+    static Actuator pumpActuator(ACTUATOR_PUMP_PIN);
+    static Actuator lampActuator(ACTUATOR_LAMP_PIN);
+
+    static ActuatorManager actuatorManager(
+        &ledFaultActuator,
+        &irrigatorActuator,
+        &pumpActuator,
+        &lampActuator
+    );
+
+    static OledDisplay oledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS);
+    static WiFiManager wifiManager(ssid, password);
+    static ServerClient serverClient(BackendServerUrl, &wifiManager);
+
     static SystemData systemData = {
-        new SensorManager(
-            new AnalogSensor(SENSOR_LVL_PIN),
-            new Dht11TempHumSens(SENSOR_HUM_TEMP_PIN),
-            new DigitalSensor(SENSOR_PIR_PIN),
-            new DigitalSensor(SENSOR_LDR_PIN),
-            new DigitalSensor(SENSOR_PB_SELECT_PIN),
-            new DigitalSensor(SENSOR_PB_ESC_PIN),
-            new DigitalSensor(SENSOR_PB_UP_PIN),
-            new DigitalSensor(SENSOR_PB_DOWN_PIN)
-        ),
-        new ActuatorManager(
-            new Actuator(ACTUATOR_LED_FAULT_PIN),
-            new Actuator(ACTUATOR_IRRIGATOR_PIN),
-            new Actuator(ACTUATOR_PUMP_PIN),
-            new Actuator(ACTUATOR_LAMP_PIN)
-        ),
-        /* Object display */
-        new OledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS),
-        /* WiFi object */
-        new WiFiManager(ssid, password),
-         /* Object client */
-        nullptr, // SrvClient will be initialized later
+        &sensorManager,
+        &actuatorManager,
+        &oledDisplay,
+        &wifiManager,
+        &serverClient,
         /* Variables */
         true,
         PB1_SELECT_DATA1,
@@ -340,10 +360,7 @@ void setup() {
         DFLT_SENSOR_LOW_HUMIDITY
     };
 
-    /* Initialize the ServerSrvClient after systemData is fully constructed */ 
-    systemData.SrvClient = new ServerClient(serverUrl, systemData.wifiManager);
-
-    /* Initialize the display */ 
+    /* Initialize the display */
     systemData.oledDisplay->init();
     systemData.oledDisplay->clearAllDisplay();
     systemData.oledDisplay->setTextProperties(1, SSD1306_WHITE);
@@ -366,4 +383,5 @@ void setup() {
 }
 
 void loop() {
+    // Empty loop
 }

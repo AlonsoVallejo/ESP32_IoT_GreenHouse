@@ -105,3 +105,11 @@ void ServerClient::closeConnection() {
     HTTPClient http;
     http.end(); // Ensure connection cleanup
 }
+
+/**
+ * @brief Returns the server URL.
+ * @return The server URL.
+ */
+const char* ServerClient::getServerUrl() {
+    return serverUrl;
+}

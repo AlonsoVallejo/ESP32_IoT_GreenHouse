@@ -10,11 +10,11 @@
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void handleLampActivation(SystemData* data) {
-    static unsigned long lastPirTriggerTime = 0;
+    static uint32_t lastPirTriggerTime = 0;
     static bool presenceDetected = false;
     static bool pirWentLow = false;
 
-    unsigned long currentMillis = millis();
+    uint32_t currentMillis = millis();
 
     if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
         bool lightState = data->sensorMgr->getLightSensorValue();
