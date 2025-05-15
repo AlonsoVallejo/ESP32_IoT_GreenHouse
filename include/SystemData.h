@@ -19,8 +19,10 @@
 enum pb1Selector {
     PB1_SELECT_DATA1, /* Display light, PIR, and Lamp data */
     PB1_SELECT_DATA2, /* Display level and Pump data */
-    PB1_SELECT_DATA3, /* Display temperature and humidity data */
+    PB1_SELECT_DATA3, /* Display temperature, humidity and irrigator data */
     PB1_SELECT_DATA4, /* Display WiFi status */
+    PB1_SELECT_DATA5, /* Settings menu */
+    PB1_SELECT_COUNT
 };
 
 /* Struct to store all system-related data */
@@ -42,7 +44,8 @@ struct SystemData {
 
     /* Variables */
     bool PirPresenceDetected;
-    pb1Selector currentSelector;
+    pb1Selector currentDisplayDataSelec;
+    uint8_t currentSettingMenu;
     uint16_t levelPercentage;
 
     /** Dynamically updated settings */

@@ -301,6 +301,36 @@ app.post("/saveDefaultSettings", async (req, res) => {
   }
 });
 
+/**
+ * Endpoint to save manual settings
+ * This endpoint is currently not implemented.
+ */
+app.post("/saveManualSettings", async (req, res) => {
+  const { manualSettings } = req.body; // Expect the "settings" key in the request body
+
+  /** Validate input */
+  if (!manualSettings) {
+    return res.status(400).send({ error: "Invalid input data" });
+  }
+
+  console.log("Received manual settings:", manualSettings);
+
+  if (db) {
+    try {
+      /** Override the current settings in Firebase under the 'settings' path */
+      await db.ref("settings").set(manualSettings);
+
+      console.log("Manual settings saved to Firebase:", manualSettings);
+      res.send({ message: "Manual settings saved successfully!" });
+    } catch (error) {
+      console.error("Error saving manual settings to Firebase:", error);
+      res.status(500).send({ error: "Error saving manual settings to Firebase." });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
 /** 
  * Endpoint to fetch current settings from Firebase
  */

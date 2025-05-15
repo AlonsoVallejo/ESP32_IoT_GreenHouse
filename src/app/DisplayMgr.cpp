@@ -69,3 +69,26 @@ void displayWiFiStatus(SystemData* data) {
     data->oledDisplay->SetdisplayData(0, 20, "Status: ");
     data->oledDisplay->SetdisplayData(45, 20, data->wifiManager->IsWiFiConnected() ? "Connected" : "Disconnected");
 }
+
+/**
+ * @brief Displays the current selector state.
+ * @param data Pointer to the SystemData structure containing sensor and actuator objects.
+ * @param currentSettingMenu The current setting being displayed.
+ * @param currentValue The current value of the setting.
+ */
+void displaySettingsMenu(SystemData* data, uint8_t currentValue) {
+    const char* settings[] = {
+        "Max Level (%)",
+        "Min Level (%)",
+        "Hot Temp (C)",
+        "Low Humidity (%)"
+    };
+
+    data->oledDisplay->SetdisplayData(0, 0, "System settings: ");
+    data->oledDisplay->SetdisplayData(0, 10, settings[data->currentSettingMenu]);
+    data->oledDisplay->SetdisplayData(0, 20, "Value:");
+    data->oledDisplay->SetdisplayData(50, 20, currentValue);
+    data->oledDisplay->SetdisplayData(0, 50, "Set");
+    data->oledDisplay->SetdisplayData(50, 50, "^ v");
+    data->oledDisplay->SetdisplayData(100, 50, "esc");
+}

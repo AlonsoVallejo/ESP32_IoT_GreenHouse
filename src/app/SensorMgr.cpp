@@ -8,10 +8,23 @@
  * @param lightSensor Pointer to the DigitalSensor object for the light sensor.
  * @param buttonSelector Pointer to the DigitalSensor object for the button selector.
  */
-SensorManager::SensorManager(AnalogSensor* levelSensor, Dht11TempHumSens* tempHumSensor,
-                             DigitalSensor* pirSensor, DigitalSensor* lightSensor, DigitalSensor* buttonSelector)
-    : levelSensor(levelSensor), tempHumSensor(tempHumSensor), pirSensor(pirSensor),
-      lightSensor(lightSensor), buttonSelector(buttonSelector) {}
+SensorManager::SensorManager(AnalogSensor* levelSensor, 
+                             Dht11TempHumSens* tempHumSensor, 
+                             DigitalSensor* pirSensor, 
+                             DigitalSensor* lightSensor, 
+                             DigitalSensor* buttonSelector, 
+                             DigitalSensor* buttonEsc, 
+                             DigitalSensor* buttonUp, 
+                             DigitalSensor* buttonDown) 
+                             : 
+                             levelSensor(levelSensor), 
+                             tempHumSensor(tempHumSensor), 
+                             pirSensor(pirSensor),
+                             lightSensor(lightSensor), 
+                             buttonSelector(buttonSelector), 
+                             buttonEsc(buttonEsc),
+                             buttonUp(buttonUp),
+                             buttonDown(buttonDown) {}
 
 /**
  * @brief Reads the level sensor and updates the internal value.
@@ -47,6 +60,27 @@ void SensorManager::readLightSensor() {
  */
 void SensorManager::readButtonSelector() {
     buttonValue = buttonSelector->readRawValue();
+}
+
+/**
+ * @brief Reads the button ESC and updates the internal value.
+ */
+void SensorManager::readButtonEsc() {
+    buttonEscValue = buttonEsc->readRawValue();
+}
+
+/**
+ * @brief Reads the button UP and updates the internal value.
+ */
+void SensorManager::readButtonUp() {
+    buttonUpValue = buttonUp->readRawValue();
+}
+
+/**
+ * @brief Reads the button DOWN and updates the internal value.
+ */
+void SensorManager::readButtonDown() {
+    buttonDownValue = buttonDown->readRawValue();
 }
 
 /**
@@ -97,6 +131,29 @@ bool SensorManager::getButtonSelectorValue() const {
     return buttonValue;
 }
 
+/**
+ * @brief Gets the last recorded value of the button ESC.
+ * @return The digital state of the button ESC (true for HIGH, false for LOW).
+ */
+bool SensorManager::getButtonEscValue() const {
+    return buttonEscValue;
+}
+
+/**
+ * @brief Gets the last recorded value of the button UP.
+ * @return The digital state of the button UP (true for HIGH, false for LOW).
+ */
+bool SensorManager::getButtonUpValue() const {
+    return buttonUpValue;
+}
+
+/**
+ * @brief Gets the last recorded value of the button DOWN.
+ * @return The digital state of the button DOWN (true for HIGH, false for LOW).
+ */
+bool SensorManager::getButtonDownValue() const {
+    return buttonDownValue;
+}
 /**
  * @brief Gets the pointer to the Dht11TempHumSens object.
  * @return Pointer to the Dht11TempHumSens object.

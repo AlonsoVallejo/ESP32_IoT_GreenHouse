@@ -99,18 +99,20 @@ void handleIrrigatorControl(SystemData* data) {
         double temperature = data->sensorMgr->getTemperature();
         double humidity = data->sensorMgr->getHumidity();
 
-        if (temperature >= 0 && temperature <= 100 && humidity >= 0 && humidity <= 100 && data->levelPercentage > data->minLevelPercentage) {
-            if (temperature >= data->hotTemperature && humidity <= data->lowHumidity) {
-                if (!irrigatorState) {
-                    data->actuatorMgr->setIrrigatorState(true);
-                    irrigatorState = true;
-                }
-            } else if (temperature < data->hotTemperature - 2 || humidity > data->lowHumidity + 5) {
-                if (irrigatorState) {
-                    data->actuatorMgr->setIrrigatorState(false);
-                    irrigatorState = false;
-                }
+        if ( (temperature >= data->hotTemperature) && (humidity <= data->lowHumidity) && (data->levelPercentage >= data->minLevelPercentage) ) {
+            if (!irrigatorState) {
+                data->actuatorMgr->setIrrigatorState(true);
+                irrigatorState = true;
             }
+        } else if (temperature < data->hotTemperature - 2 || humidity > data->lowHumidity + 5) {
+            if (irrigatorState) {
+                data->actuatorMgr->setIrrigatorState(false);
+                irrigatorState = false;
+            }
+        } else {
+            /* If conditions are not met, keep the irrigator OFF */
+            data->actuatorMgr->setIrrigatorState(false);
+            irrigatorState = false;
         }
 
         xSemaphoreGive(xSystemDataMutex);

@@ -74,6 +74,20 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, uint16_t data) {
  * @param posY Y-coordinate of the data.
  * @param data Numerical value to display.
  */
+void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, uint8_t data) {
+    /* Clear the section where the text will be updated */
+    display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);
+    display.setCursor(posX, posY);
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); // White text on black background
+    display.print(data);  // Print the numerical value to the display buffer
+}
+
+/**
+ * @brief Displays numerical data at a specified position.
+ * @param posX X-coordinate of the data.
+ * @param posY Y-coordinate of the data.
+ * @param data Numerical value to display.
+ */
 void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, double data) {
     /* Clear the section where the text will be updated */
     display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);

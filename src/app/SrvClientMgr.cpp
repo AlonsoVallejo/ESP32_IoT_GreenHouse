@@ -137,3 +137,35 @@ void sendDefaultSettings(SystemData* data, const char* serverUrl) {
 
     http.end();
 }
+
+/**
+ * @brief Sends manual systems settings to the server.
+ * @param data Pointer to the SystemData structure.
+ * @param serverUrl URL of the backend server.
+ */
+void sendManualSettings(SystemData* data, const char* serverUrl) {
+    HTTPClient http;
+    String fullUrl = String(serverUrl) + "saveManualSettings"; /* Append the endpoint to the base URL */
+
+    String payload = "{";
+    payload += "\"manualSettings\": {";
+    payload += "\"maxLevel\": " + String(data->maxLevelPercentage) + ",";
+    payload += "\"minLevel\": " + String(data->minLevelPercentage) + ",";
+    payload += "\"hotTemperature\": " + String(data->hotTemperature) + ",";
+    payload += "\"lowHumidity\": " + String(data->lowHumidity);
+    payload += "}}";
+
+    http.begin(fullUrl); /* Use the full URL */
+    http.addHeader("Content-Type", "application/json");
+
+    int httpResponseCode = http.POST(payload);
+    if (httpResponseCode > 0) {
+        LogSerial("manual settings response: ", true);
+        LogSerialn(String(httpResponseCode), true);
+    } else {
+        LogSerial("Failed to send manual settings: ", true);
+        LogSerialn(http.errorToString(httpResponseCode).c_str(), true);
+    }
+
+    http.end();
+}
