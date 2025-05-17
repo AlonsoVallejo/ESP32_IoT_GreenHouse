@@ -122,6 +122,8 @@ void TaskDisplay(void* pvParameters) {
         static uint32_t lastLogTime = 0;
         uint32_t currentMillis = millis();
 
+        data->oledDisplay->clearAllDisplay();
+        
         switch (data->currentDisplayDataSelec) {
             case SCREEN_LGT_PIR_LAMP_DATA:
                 displayLightAndPresence(data);
@@ -143,7 +145,6 @@ void TaskDisplay(void* pvParameters) {
                 break;
             case SCREEN_WIFI_SETT_MENU:
             case SCREEN_WIFI_SETT_SUB_MENU:
-                data->oledDisplay->clearAllDisplay();
                 displayWiFiSettings(data);
                 break;
             default:
