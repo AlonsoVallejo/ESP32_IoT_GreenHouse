@@ -16,41 +16,41 @@ ServerClient::ServerClient(const char* serverUrl, WiFiManager* wifiManager)
  */
 void ServerClient::prepareData(const String& key, const String& value) {
     if (payload == "{}") { 
-        payload = "{"; // Start JSON object
+        payload = "{"; /* Start JSON object */
     } else if (payload[payload.length() - 1] != '{') {
-        payload += ","; // Separate multiple fields
+        payload += ","; /* Separate multiple fields */
     }
-    payload += "\"" + key + "\": \"" + value + "\""; // Append key-value pair
+    payload += "\"" + key + "\": \"" + value + "\""; /* Append key-value pair */
 }
 
 /**
  * @brief Sends JSON payload to the server via HTTP POST request.
  */
 void ServerClient::sendPayload() {
-    payload += "}"; // Close the JSON object
+    payload += "}"; /* Close the JSON object */
     HTTPClient http;
 
     LogSerial("Preparing to send payload: ", false);
-    LogSerialn(payload, false); // Log the payload for debugging
+    LogSerialn(payload, false); /* Log the payload for debugging */
 
-    for (int retry = 0; retry < 3; retry++) { // Retry up to 3 times
-        String fullUrl = String(serverUrl) + "updateData"; // Append the endpoint to the base URL
+    for (int retry = 0; retry < 3; retry++) { /* Retry up to 3 times */
+        String fullUrl = String(serverUrl) + "updateData"; /* Append the endpoint to the base URL */
         if (serverUrl[strlen(serverUrl) - 1] != '/') {
-            fullUrl = String(serverUrl) + "/updateData"; // Ensure the URL is correctly formatted
+            fullUrl = String(serverUrl) + "/updateData"; /* Ensure the URL is correctly formatted */
         }
 
-        http.begin(fullUrl); // Use the full URL
+        http.begin(fullUrl); /* Use the full URL */
         http.setTimeout(5000);
         http.addHeader("Content-Type", "application/json");
 
         int httpResponseCode = http.POST(payload);
         if (httpResponseCode > 0) {
-            // HTTP POST successful
+            /* HTTP POST successful */
             LogSerial("HTTP POST successful, response code: ", true);
             LogSerialn(String(httpResponseCode), true);
-            break; // Exit retry loop
+            break; /* Exit retry loop */
         } else {
-            // HTTP POST failed
+            /* HTTP POST failed */
             LogSerial("HTTP POST failed, error: ", true);
             LogSerialn(http.errorToString(httpResponseCode).c_str(), true);
         }
@@ -58,7 +58,7 @@ void ServerClient::sendPayload() {
         http.end();
     }
 
-    payload = "{}"; // Reset the payload after sending
+    payload = "{}"; /* Reset the payload after sending */
 }
 
 /**
@@ -78,12 +78,12 @@ void ServerClient::sendDefaultSettings(uint8_t maxLevel, uint8_t minLevel, uint8
     payload += "}}";
 
     HTTPClient http;
-    String fullUrl = String(serverUrl) + "saveDefaultSettings"; // Append the endpoint to the base URL
+    String fullUrl = String(serverUrl) + "saveDefaultSettings"; /* Append the endpoint to the base URL */
     if (serverUrl[strlen(serverUrl) - 1] != '/') {
-        fullUrl = String(serverUrl) + "/saveDefaultSettings"; // Ensure the URL is correctly formatted
+        fullUrl = String(serverUrl) + "/saveDefaultSettings"; /* Ensure the URL is correctly formatted */
     }
 
-    http.begin(fullUrl); // Use the full URL
+    http.begin(fullUrl); /* Use the full URL */
     http.addHeader("Content-Type", "application/json");
 
     int httpResponseCode = http.POST(payload);
@@ -103,7 +103,7 @@ void ServerClient::sendDefaultSettings(uint8_t maxLevel, uint8_t minLevel, uint8
  */
 void ServerClient::closeConnection() {
     HTTPClient http;
-    http.end(); // Ensure connection cleanup
+    http.end(); /* Ensure connection cleanup */
 }
 
 /**

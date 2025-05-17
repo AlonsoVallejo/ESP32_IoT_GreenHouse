@@ -11,9 +11,8 @@ enum wifiSettings_Type {
 
 #define HELD_BUTTON_TIME  (3000) // Time in ms to consider a button as held
 #define MIN_PASSWORD_LENGTH (8) // Minimum password length
-#
-/**
- * @brief Displays footer with labels for next screen and settings.
+
+/* Displays footer with labels for next screen and settings.
  * @param oledDisplay Pointer to the OledDisplay object.
  * @param ltbottom Label for the left bottom corner.
  * @param midbottom Label for the middle bottom corner.
@@ -36,8 +35,7 @@ void displayFooter(OledDisplay* oledDisplay, const char* ltbottom, const char* m
     oledDisplay->SetdisplayData(rtX, y, rtbottom);
 }
 
-/**
- * @brief Displays light sensor, PIR presence, and lamp state.
+/* Displays light sensor, PIR presence, and lamp state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayLightAndPresence(SystemData* data) {
@@ -53,8 +51,7 @@ void displayLightAndPresence(SystemData* data) {
     displayFooter(data->oledDisplay, "Next", " ", "");
 }
 
-/**
- * @brief Displays water level and pump state.
+/* Displays water level and pump state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayWaterLevelAndPump(SystemData* data) {
@@ -78,8 +75,7 @@ void displayWaterLevelAndPump(SystemData* data) {
     displayFooter(data->oledDisplay, "Next", " " , "Settings");
 }
 
-/**
- * @brief Displays temperature, humidity, and irrigator state.
+/* Displays temperature, humidity, and irrigator state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayTemperatureAndHumidity(SystemData* data) {
@@ -98,8 +94,7 @@ void displayTemperatureAndHumidity(SystemData* data) {
     displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
 
-/**
- * @brief Displays WiFi status and connection information.
+/* Displays WiFi status and connection information.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayWiFiStatus(SystemData* data) {
@@ -112,8 +107,7 @@ void displayWiFiStatus(SystemData* data) {
     displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
 
-/**
- * @brief Displays the current selector state.
+/* Displays the current selector state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param currentSettingMenu The current setting being displayed.
  * @param currentValue The current value of the setting.
@@ -131,8 +125,7 @@ void displayLevelSettings(SystemData* data, uint8_t currentValue) {
     displayFooter(data->oledDisplay, "Param", "^ v", "save");
 }
 
-/**
- * @brief Displays the current selector state.
+/* Displays the current selector state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param currentSettingMenu The current setting being displayed.
  * @param currentValue The current value of the setting.
@@ -151,17 +144,16 @@ void displayTempHumSettings(SystemData* data, uint8_t currentValue) {
     displayFooter(data->oledDisplay, "Param", "^ v", "save");
 }
 
-/**
- * @brief screen to allow the user select the option in wifi settins menu.
- *        The user can choose to scan for networks or disconnect from the current network.
- *        Use up/down to move, select to choose, esc to exit.
+/* Screen to allow the user select the option in wifi settins menu.
+ * The user can choose to scan for networks or disconnect from the current network.
+ * Use up/down to move, select to choose, esc to exit.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @return WIFI_SETTIGNS_LIST_NETWORKS: if the user selects to scan for networks.
  *         WIFI_SETTIGNS_DISCONNECT: if the user selects to disconnect from the current network.
  *         WIFI_SETTIGNS_MENU: if the user selects to exit.
  */
 wifiSettings_Type WifiSettinsMenu(SystemData* data) {
-    /** Static variable to keep track of menu selection */
+    /* Static variable to keep track of menu selection */
     static int menuIdx = 0;
     const int menuCount = 2;
     const char* menuOptions[menuCount] = {
@@ -169,7 +161,7 @@ wifiSettings_Type WifiSettinsMenu(SystemData* data) {
         "Disconnect WiFi"
     };
 
-    /** Read button states */
+    /* Read button states */
     bool selectPressed = !data->sensorMgr->getButtonSelectorValue();
     bool escPressed = !data->sensorMgr->getButtonEscValue();
     bool upPressed = !data->sensorMgr->getButtonUpValue();
@@ -178,18 +170,17 @@ wifiSettings_Type WifiSettinsMenu(SystemData* data) {
     static uint32_t lastButtonTime = 0;
     uint32_t now = millis();
 
-    /** Display menu options */
+    /* Display menu options */
     data->oledDisplay->SetdisplayData(0, 0, "WiFi Settings:");
     for (int i = 0; i < menuCount; ++i) {
         String line = (i == menuIdx ? ">" : " ") + String(menuOptions[i]);
         data->oledDisplay->SetdisplayData(0, 10 + i * 10, line.c_str());
     }
 
-    /** Footer for navigation hints */
+    /* Footer for navigation hints */
     displayFooter(data->oledDisplay, "Select", "^ v", "Esc");
 
-
-    /** Debounce buttons */
+    /* Debounce buttons */
     if (now - lastButtonTime > 300) {
         if (upPressed) {
             menuIdx = (menuIdx - 1 + menuCount) % menuCount;
@@ -203,14 +194,14 @@ wifiSettings_Type WifiSettinsMenu(SystemData* data) {
                 data->currentDisplayDataSelec = SCREEN_WIFI_SETT_SUB_MENU;
                 return WIFI_SETTIGNS_LIST_NETWORKS;
             } else if (menuIdx == 1) {
-                /** Disconnect from the current network */
+                /* Disconnect from the current network */
                 return WIFI_SETTIGNS_DISCONNECT;
             }
         } else if (escPressed) {
             lastButtonTime = now;
-            return WIFI_SETTIGNS_MENU; /** Reset state machine  */
+            return WIFI_SETTIGNS_MENU; /* Reset state machine  */
         } else {
-            /** No button pressed, keep in the wifi setting main screen */
+            /* No button pressed, keep in the wifi setting main screen */
             data->currentDisplayDataSelec = SCREEN_WIFI_SETT_MENU;
         }
     }
@@ -218,14 +209,13 @@ wifiSettings_Type WifiSettinsMenu(SystemData* data) {
     return WIFI_SETTIGNS_MENU;
 }
 
-/**
- * @brief Start scanning for available WiFi networks and display them. The user can select one to connect or do nothing(esc).
+/* Start scanning for available WiFi networks and display them. The user can select one to connect or do nothing(esc).
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param selected_ssid[OUT] The SSID of the selected network.
  * @return WIFI_SETTIGNS_SET_PASSWORD: if the user selects a network to connect to, otherwise WIFI_SETTIGNS_MENU.
  */
 wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssid) {
-    /** Static variables to keep scan results and selection */
+    /* Static variables to keep scan results and selection */
     static std::vector<String> ssidList;
     static int selectedIdx = 0;
     static bool scanned = false;
@@ -234,13 +224,13 @@ wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssi
 
     data->currentDisplayDataSelec = SCREEN_WIFI_SETT_SUB_MENU;
 
-    /** Read button states */
+    /* Read button states */
     bool selectPressed = !data->sensorMgr->getButtonSelectorValue();
     bool escPressed = !data->sensorMgr->getButtonEscValue();
     bool upPressed = !data->sensorMgr->getButtonUpValue();
     bool downPressed = !data->sensorMgr->getButtonDownValue();
 
-    /** Scan only once when entering this state */
+    /* Scan only once when entering this state */
     if (!scanned) {
         data->oledDisplay->SetdisplayData(0, 0, "Scanning Networks..");
         data->oledDisplay->PrintdisplayData();
@@ -249,10 +239,10 @@ wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssi
         scanned = true;
     }
     
-    /** Footer for navigation hints */
+    /* Footer for navigation hints */
     displayFooter(data->oledDisplay, "Select", "^ v", "Esc");
 
-    /** Debounce buttons */
+    /* Debounce buttons */
     if (now - lastButtonTime > 300) {
         if (upPressed && !ssidList.empty()) {
             selectedIdx = (selectedIdx - 1 + ssidList.size()) % ssidList.size();
@@ -262,23 +252,23 @@ wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssi
             lastButtonTime = now;
         } else if (selectPressed && !ssidList.empty()) {
             selected_ssid = ssidList[selectedIdx];
-            scanned = false; /** Reset for next entry */
+            scanned = false; /* Reset for next entry */
             lastButtonTime = now;
             return WIFI_SETTIGNS_SET_PASSWORD;
         } else if (escPressed) {
-            scanned = false; /** Reset for next entry */
+            scanned = false; /* Reset for next entry */
             lastButtonTime = now;
             data->currentDisplayDataSelec = SCREEN_WIFI_SETT_MENU; /* Return to main wifi settins */
             return WIFI_SETTIGNS_MENU;
         }
     }
 
-    /** Display scanned SSIDs */
+    /* Display scanned SSIDs */
     data->oledDisplay->SetdisplayData(0, 0, "Select WiFi:");
     if (ssidList.empty()) {
         data->oledDisplay->SetdisplayData(0, 10, "No networks found");
     } else {
-        /** Show up to 3 SSIDs, centered on selectedIdx */
+        /* Show up to 3 SSIDs, centered on selectedIdx */
         int start = selectedIdx - 1;
         if (start < 0) start = 0;
         int end = start + 3;
@@ -296,10 +286,9 @@ wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssi
     return WIFI_SETTIGNS_LIST_NETWORKS;
 }
 
-/**
-* @brief Allow the user to set the password for the selected SSID using Navigation buttons.
- *        The password is shown in the display (not masked).
- *        Use up/down to change character, select to move to next, esc to go back.
+/* Allow the user to set the password for the selected SSID using Navigation buttons.
+ * The password is shown in the display (not masked).
+ * Use up/down to change character, select to move to next, esc to go back.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param selected_ssid[IN] The SSID of the selected network.
  * @param password[OUT] The entered password for the selected network.
@@ -308,8 +297,8 @@ wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssi
  *         WIFI_SETTIGNS_MENU: if the user selects to go back to the main menu.
  */
 wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid, String& password) {
-    /** Static variables to keep password entry state */
-    static char passwordBuffer[33] = {0}; // Max 32 chars + null terminator
+    /* Static variables to keep password entry state */
+    static char passwordBuffer[33] = {0}; /* Max 32 chars + null terminator */
     static uint8_t passwordLength = 0;
     static uint8_t cursorPosition = 0;
     static bool isInitialized = false;
@@ -319,11 +308,11 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
 
     data->currentDisplayDataSelec = SCREEN_WIFI_SETT_SUB_MENU;
 
-    /** Character set for password entry */
+    /* Character set for password entry */
     static const char characterSet[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{};:,.<>/?";
     static const uint8_t characterSetLength = sizeof(characterSet) - 1;
     
-    /** Initialize on first entry or new SSID */
+    /* Initialize on first entry or new SSID */
     if (!isInitialized || lastSsid != selected_ssid) {
         memset(passwordBuffer, 0, sizeof(passwordBuffer));
         passwordLength = 0;
@@ -332,19 +321,19 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
         lastSsid = selected_ssid;
     }
 
-    /** Read button states */
+    /* Read button states */
     bool selectButtonPressed = !data->sensorMgr->getButtonSelectorValue();
     bool escButtonPressed = !data->sensorMgr->getButtonEscValue();
     bool upButtonPressed = !data->sensorMgr->getButtonUpValue();
     bool downButtonPressed = !data->sensorMgr->getButtonDownValue();
 
-    /** Debounce buttons and handle fast scroll */
+    /* Debounce buttons and handle fast scroll */
     static uint32_t upButtonPressStart = 0;
     static uint32_t downButtonPressStart = 0;
     bool upButtonHeld = false;
     bool downButtonHeld = false;
 
-    // Detect long press for up button
+    /* Detect long press for up button */
     if (upButtonPressed) {
         if (upButtonPressStart == 0) upButtonPressStart = currentMillis;
         if (currentMillis - upButtonPressStart > HELD_BUTTON_TIME) upButtonHeld = true;
@@ -352,7 +341,7 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
         upButtonPressStart = 0;
     }
 
-    // Detect long press for down button
+    /* Detect long press for down button */
     if (downButtonPressed) {
         if (downButtonPressStart == 0) downButtonPressStart = currentMillis;
         if (currentMillis - downButtonPressStart > HELD_BUTTON_TIME) downButtonHeld = true;
@@ -360,7 +349,7 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
         downButtonPressStart = 0;
     }
 
-    /** Debounce buttons */
+    /* Debounce buttons */
     if (currentMillis - lastButtonTime > 200) {
         if (upButtonPressed) {
             int step = upButtonHeld ? 5 : 1;
@@ -389,13 +378,13 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
         } else if (selectButtonPressed) {
             if (passwordLength < 32) {
                 if (cursorPosition == passwordLength) {
-                    // Only add a new character if we're at the end and it's not set
+                    /* Only add a new character if we're at the end and it's not set */
                     if (passwordBuffer[cursorPosition] == '\0') {
                         passwordBuffer[cursorPosition] = characterSet[0];
                     }
                     passwordLength++;
                 }
-                // Move to next character, but do not go past passwordLength
+                /* Move to next character, but do not go past passwordLength */
                 if (cursorPosition < passwordLength) {
                     cursorPosition++;
                 }
@@ -404,10 +393,10 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
             lastButtonTime = currentMillis;
         } else if (escButtonPressed) {
             if (cursorPosition > 0) {
-                // Move cursor back or delete char
+                /* Move cursor back or delete char */
                 cursorPosition--;
             } else {
-                // If password is long enough, accept it and continue
+                /* If password is long enough, accept it and continue */
                 if (passwordLength >= MIN_PASSWORD_LENGTH) {
                     password = String(passwordBuffer);
                     isInitialized = false;
@@ -415,7 +404,7 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
                     LogSerialn(password, true);
                     return WIFI_SETTIGNS_CONNECT_FEEDBACK;
                 } else {
-                    // Go back to network list
+                    /* Go back to network list */
                     isInitialized = false;
                     LogSerialn("Password too short, go back to network list", true);
                     return WIFI_SETTIGNS_LIST_NETWORKS;
@@ -425,13 +414,13 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
         }
     }
 
-    /** Display UI */
+    /* Display UI */
     data->oledDisplay->SetdisplayData(0, 0, "SSID:");
     data->oledDisplay->SetdisplayData(40, 0, selected_ssid.c_str());
     data->oledDisplay->SetdisplayData(0, 10, "Password:");
     data->oledDisplay->SetdisplayData(0, 20, passwordBuffer);
 
-    // Show cursor position (underline or ^)
+    /* Show cursor position (underline or ^) */
     char cursorLine[33] = {0};
     for (uint8_t i = 0; i < cursorPosition; ++i) cursorLine[i] = ' ';
     cursorLine[cursorPosition] = '^';
@@ -442,8 +431,7 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
     return WIFI_SETTIGNS_SET_PASSWORD;
 }
 
-/**
- * @brief Show "Connecting..." and then "Success!" or "Failed!" with reason.
+/* Show "Connecting..." and then "Success!" or "Failed!" with reason.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param selected_ssid The SSID of the selected network.
  * @param password The entered password for the selected network.
@@ -452,14 +440,14 @@ wifiSettings_Type WifiSettinsSetPassword(SystemData* data, String selected_ssid,
 wifiSettings_Type WifiSettinsConnectFeedack(SystemData* data, String selected_ssid, String password) {
     data->currentDisplayDataSelec = SCREEN_WIFI_SETT_SUB_MENU;
 
-    /** Read button states */
+    /* Read button states */
     bool escPressed = !data->sensorMgr->getButtonEscValue();
 
-    /** Display connecting message */
+    /* Display connecting message */
     data->oledDisplay->SetdisplayData(0, 0, "Connecting to WiFi...");
     data->oledDisplay->PrintdisplayData();
 
-    /** Attempt to connect to the selected network */
+    /* Attempt to connect to the selected network */
     if (data->wifiManager->connectToNetwork(selected_ssid, password)) {
         data->oledDisplay->SetdisplayData(0, 0, "Connection Success!");
         data->oledDisplay->PrintdisplayData();
@@ -480,18 +468,17 @@ wifiSettings_Type WifiSettinsConnectFeedack(SystemData* data, String selected_ss
     return WIFI_SETTIGNS_MENU;
 }
 
-/**
- * @brief Disconnect from the current WiFi network.
+/* Disconnect from the current WiFi network.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @return WIFI_SETTIGNS_MENU: if the user selects to go back to the main menu.
  */
 wifiSettings_Type WifiSettinsDisconnect(SystemData* data) {
     data->currentDisplayDataSelec = SCREEN_WIFI_SETT_SUB_MENU;
 
-    /** Read button states */
+    /* Read button states */
     bool escPressed = !data->sensorMgr->getButtonEscValue();
 
-    /** Disconnect from the current network */
+    /* Disconnect from the current network */
     data->oledDisplay->SetdisplayData(0, 0, "WiFi Disconnecting...");
     data->oledDisplay->PrintdisplayData();
     data->wifiManager->disconnectWiFi();
@@ -509,12 +496,11 @@ wifiSettings_Type WifiSettinsDisconnect(SystemData* data) {
     return WIFI_SETTIGNS_MENU;
 }
 
-/**
- * @brief Displays the WiFi settings screen with a list of available SSIDs.
- *        State machine: menu -> scan/list -> password -> connect feedback -> disconnect.
+/* Displays the WiFi settings screen with a list of available SSIDs.
+ * State machine: menu -> scan/list -> password -> connect feedback -> disconnect.
  */
 void displayWiFiSettings(SystemData* data) {
-    /** Static variables for state machine */
+    /* Static variables for state machine */
     static wifiSettings_Type wifiSettings = WIFI_SETTIGNS_MENU;
     static String selected_ssid = "";
     static String password = "";

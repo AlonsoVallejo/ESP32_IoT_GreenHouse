@@ -29,6 +29,19 @@ using namespace std;
 #define SUBTASK_INTERVAL_2000_MS (2000)  
 #define SUBTASK_INTERVAL_15_S    (15000)  
 
+#define SENSOR_TASK_STACK_SIZE   (4096)
+#define PROCESS_TASK_STACK_SIZE  (2048)
+#define ACTUATOR_TASK_STACK_SIZE (2048)
+#define DISPLAY_TASK_STACK_SIZE  (2048)
+#define SENDDATA_TASK_STACK_SIZE (4096)
+
+#define SENSOR_TASK_PRIORITY     (3)
+#define PROCESS_TASK_PRIORITY    (2)
+#define ACTUATOR_TASK_PRIORITY   (2)
+#define DISPLAY_TASK_PRIORITY    (2)
+#define SENDDATA_TASK_PRIORITY   (1)
+
+#define WIFI_RETRY_INTERVAL_MS  (10000)
 
 #define TASK_CORE_0 (0)
 #define TASK_CORE_1 (1)
@@ -58,7 +71,7 @@ void TaskReadSensors(void* pvParameters) {
             data->sensorMgr->readDht11TempHumSens();
         }
  
-        vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100 ms
+        vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_100_MS)); // Delay for button debounce
     }
 }
 
@@ -78,7 +91,7 @@ void TaskProcessData(void* pvParameters) {
         /* Button control logic */
         pButtonsCtrl(data);
 
-        vTaskDelay(pdMS_TO_TICKS(100)); // Process data every 100ms
+        vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_100_MS)); // Process data every 100ms
     }
 }
 
@@ -88,7 +101,7 @@ void TaskControlActuators(void* pvParameters) {
         /* Apply internal states to hardware outputs */
         data->actuatorMgr->applyState();
 
-        vTaskDelay(pdMS_TO_TICKS(100)); // Update actuators every 100ms
+        vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_100_MS)); // Update actuators every 100ms
     }
 }
 
@@ -167,7 +180,7 @@ void TaskSendDataToServer(void* pvParameters) {
     const char* serverUrl = data->SrvClient->getServerUrl();
     uint16_t customTaskDelay = 0;
     static uint32_t lastWifiAttempt = 0;
-    const uint32_t wifiRetryInterval = 10000;
+    const uint32_t wifiRetryInterval = WIFI_RETRY_INTERVAL_MS;
 
     for (;;) {
         if (strcmp(data->wifiManager->getSSID(), "DUMMY_WIFI_SSID") == 0 && strcmp(data->wifiManager->getPassword(), "DUMMY_WIFI_PASSWORD") == 0) {
@@ -352,14 +365,14 @@ void setup() {
     LogSerialn("Sensor/Actuator/Display/WiFi objects initialized", true);
 
     /* Core 0: Real-Time Peripheral and Logic */
-    xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", 4096, &systemData, 3, NULL, TASK_CORE_0);
-    xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", 2048, &systemData, 2, NULL, TASK_CORE_0);
-    xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", 2048, &systemData, 2, NULL, TASK_CORE_0);
+    xTaskCreatePinnedToCore(TaskReadSensors, "ReadSensors", SENSOR_TASK_STACK_SIZE, &systemData, SENSOR_TASK_PRIORITY, NULL, TASK_CORE_0);
+    xTaskCreatePinnedToCore(TaskProcessData, "ProcessData", PROCESS_TASK_STACK_SIZE, &systemData, PROCESS_TASK_PRIORITY, NULL, TASK_CORE_0);
+    xTaskCreatePinnedToCore(TaskControlActuators, "ControlActuators", ACTUATOR_TASK_STACK_SIZE, &systemData, ACTUATOR_TASK_PRIORITY, NULL, TASK_CORE_0);
     LogSerialn("Core 0: Sensor/Actuator tasks initialized", true);
 
     /* Core 1: Communication and Display */
-    xTaskCreatePinnedToCore(TaskDisplay, "Display", 2048, &systemData, 2, NULL, TASK_CORE_1);
-    xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", 4096, &systemData, 1, NULL, TASK_CORE_1);
+    xTaskCreatePinnedToCore(TaskDisplay, "Display", DISPLAY_TASK_STACK_SIZE, &systemData, DISPLAY_TASK_PRIORITY, NULL, TASK_CORE_1);
+    xTaskCreatePinnedToCore(TaskSendDataToServer, "SendData", SENDDATA_TASK_STACK_SIZE, &systemData, SENDDATA_TASK_PRIORITY, NULL, TASK_CORE_1);
     LogSerialn("Core 1: Display/SrvClient tasks initialized", true);
 }
 

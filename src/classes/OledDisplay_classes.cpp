@@ -17,9 +17,9 @@ OledDisplay::OledDisplay(uint8_t width, uint8_t height, uint8_t lcd_addr)
  *        Sets up the display and provides a startup delay for stability.
  */
 void OledDisplay::init() {
-    display.begin(SSD1306_SWITCHCAPVCC, lcd_addr); // Initialize display with I2C address
-    display.display();  // Refresh display after initialization
-    vTaskDelay(pdMS_TO_TICKS(500)); // Short delay for stabilization
+    display.begin(SSD1306_SWITCHCAPVCC, lcd_addr); /* Initialize display with I2C address */
+    display.display();  /* Refresh display after initialization */
+    vTaskDelay(pdMS_TO_TICKS(500)); /* Short delay for stabilization */
 }
 
 /**
@@ -49,8 +49,8 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, const char* data) {
     /* Clear the section where the text will be updated */
     display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);
     display.setCursor(posX, posY);
-    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); // White text on black background
-    display.print(data);  // Print the string to the display buffer
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); /* White text on black background */
+    display.print(data);  /* Print the string to the display buffer */
 }
 
 /**
@@ -63,8 +63,8 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, uint16_t data) {
     /* Clear the section where the text will be updated */
     display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);
     display.setCursor(posX, posY);
-    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); // White text on black background
-    display.print(data);  // Print the numerical value to the display buffer
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); /* White text on black background */
+    display.print(data);  /* Print the numerical value to the display buffer */
 }
 
 /**
@@ -77,8 +77,8 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, uint8_t data) {
     /* Clear the section where the text will be updated */
     display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);
     display.setCursor(posX, posY);
-    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); // White text on black background
-    display.print(data);  // Print the numerical value to the display buffer
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); /* White text on black background */
+    display.print(data);  /* Print the numerical value to the display buffer */
 }
 
 /**
@@ -91,15 +91,15 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, double data) {
     /* Clear the section where the text will be updated */
     display.fillRect(posX, posY, display.width() - posX, 8, SSD1306_BLACK);
     display.setCursor(posX, posY);
-    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); // White text on black background
-    display.print(data);  // Print the numerical value to the display buffer
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK); /* White text on black background */
+    display.print(data);  /* Print the numerical value to the display buffer */
 }
 
 /**
  * @brief Sends the buffered display data to the OLED screen.
  */
 void OledDisplay::PrintdisplayData() {
-    display.display(); // Refresh the display with new data
+    display.display(); /* Refresh the display with new data */
 }
 
 /**
