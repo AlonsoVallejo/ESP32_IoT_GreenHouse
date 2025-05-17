@@ -26,8 +26,7 @@ void OledDisplay::init() {
  * @brief Clears all content from the display.
  */
 void OledDisplay::clearAllDisplay() {
-    display.clearDisplay();  // Clears the buffer
-    display.display();       // Refresh the display
+    display.clearDisplay(); 
 }
 
 /**

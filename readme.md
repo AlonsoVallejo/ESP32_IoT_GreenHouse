@@ -1,6 +1,26 @@
 # ESP32 IoT Greenhouse Monitoring System
 
-Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroller. The system collects real-time data from sensors (light, temperature, humidity, PIR, water level) and controls actuators (LEDs, relays, irrigation system) based on environmental conditions. Data is displayed on an OLED screen and sent to a backend server built with Node.js, which integrates with Firebase Realtime Database for storage and timestamping. The project leverages FreeRTOS for multitasking, PlatformIO for firmware development, and RESTful APIs for communication. Designed for efficient monitoring and automation of greenhouse environments.
+This project is a **integrated IoT solution for greenhouse monitoring and automation**, built around the ESP32 SoC. The system collects real-time data from multiple sensors (light, temperature, humidity, PIR motion, and water level) and controls actuators (Lamps, relays, irrigation system, electrovales) based on configurable environmental thresholds. 
+
+**Key features**
+- **User-friendly WiFi configuration:**  
+  Configure WiFi credentials directly from the device using the OLED display and push buttons. The ESP32 scans for available 2.4GHz networks, allows SSID selection, and password entry via a simple UI. Credentials are securely saved to NVS/EEPROM and auto-loaded on boot. Hardcoding credentials is also supported for developers.
+- **Settings menu on device:**  
+  Adjust system parameters using the onboard UI. Changes are saved locally and synchronized with the backend.
+- **Robust multitasking:**  
+  Uses FreeRTOS to run sensor reading, actuator control, display updates, and server communication in parallel for responsive and reliable operation.
+- **OLED display:**  
+  Real-time feedback of sensor readings, actuator states, WiFi status, and settings menus.
+- **Backend integration:**  
+  Sends sensor and actuator data to a Node.js backend, which stores information in Firebase Realtime Database with CST timestamps. The backend also manages settings and provides RESTful APIs for configuration and monitoring.
+- **Automatic reconnection:**  
+  If WiFi is lost, the ESP32 will automatically attempt to reconnect using saved credentials, ensuring continuous operation.
+- **Manual and remote configuration:**  
+  System settings can be updated manually via the device or remotely via the backend server.
+- **Front-end dashboard:**  
+  A responsive web dashboard (frontend) displays real-time sensor and actuator data, historical trends, and allows remote configuration of system settings. The dashboard is designed for easy access and monitoring from any device.
+- **Easy deployment:**  
+  Developed with PlatformIO for streamlined firmware development and deployment.
 
 ---
 
@@ -28,6 +48,20 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
   - Use the **Up** and **Down** buttons to adjust values.
   - Use the **ESC** button to save changes and exit the menu.
 - Automatically saves updated settings to the backend server when exiting the menu.
+
+### WiFi Settings Menu
+- Allows user-friendly WiFi configuration and connection:
+  - **Scan for available 2.4GHz WiFi networks** and display them in a scrollable list.
+  - **Select a network** using the Up/Down buttons and Select to confirm.
+  - **Enter password** for the selected network using Up/Down to change character, Select to move to next character, and ESC to go back or confirm.
+  - **Connect to WiFi** and receive feedback ("Connecting...", "Success!", or "Failed!").
+  - **Disconnect from current WiFi** if desired.
+- Navigation:
+  - **Up/Down**: Move through SSID list or change password character.
+  - **Select**: Confirm selection or move to next character.
+  - **ESC**: Go back, cancel, or confirm password entry.
+- Credentials are **saved to NVS/EEPROM** after a successful connection.
+- On boot, the ESP32 **automatically tries to connect with saved credentials** before showing the WiFi setup screen.
 
 ### Irrigation Control
 - Automatically activates the irrigation system based on temperature and humidity thresholds.
@@ -74,40 +108,47 @@ Developed an IoT solution for greenhouse monitoring using an ESP32 microcontroll
 
 ### ESP32 Firmware
 
-1. Clone this repository:
+1. **Clone this repository:**
    ```bash
    git clone https://github.com/your-repo/ESP32_Project.git
    cd ESP32_Project
    ```
 
-2. Open the project in PlatformIO or Visual Studio Code.
+2. **Open the project** in PlatformIO or Visual Studio Code.
 
-3. Configure WiFi credentials:
-   ```cpp
-   const char* ssid = "YOUR_WIFI_SSID";
-   const char* password = "YOUR_WIFI_PASSWORD";
-   ```
+3. **Build and upload the firmware** to the ESP32.  
+   > **Note:** You can hardcode WiFi credentials in the source code if you wish, but you can also configure WiFi using the user interface with the display and push buttons.  
+   On first boot (or if no credentials are saved), the ESP32 will prompt you to configure WiFi using the push buttons and OLED display.
 
-4. Build and upload the firmware to the ESP32.
+4. **WiFi Setup via OLED and Buttons:**
+   - On first boot (or if no credentials are saved), the ESP32 will scan for available 2.4GHz WiFi networks.
+   - Use the **Up/Down** buttons to scroll through the list of SSIDs.
+   - Press **Select** to choose a network.
+   - Enter the password using Up/Down to change the character, Select to move to the next character, and ESC to go back or confirm.
+   - After a successful connection, credentials are saved to NVS/EEPROM for future boots.
+   - On subsequent boots, the ESP32 will automatically connect using the saved credentials.
+
+5. **Manual WiFi Reconfiguration:**
+   - To change WiFi credentials later, use the **WiFi Settings Menu** on the device.
 
 ### Backend Server
 
-1. Navigate to the backend folder:
+1. **Navigate to the backend folder:**
    ```bash
    cd backend
    ```
 
-2. Install dependencies:
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. Start the server:
+3. **Start the server:**
    ```bash
    node server.js
    ```
 
-4. Use `ngrok` to expose the backend server if needed:
+4. **(Optional) Use `ngrok` to expose the backend server:**
    ```bash
    ngrok http 3000
    ```

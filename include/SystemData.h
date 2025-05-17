@@ -17,13 +17,15 @@
 
 /* Enum for button selector states */
 enum pb1Selector {
-    PB1_SELECT_DATA1, /* Display light, PIR, and Lamp data */
-    PB1_SELECT_DATA2, /* Display level and Pump data */
-    PB1_SELECT_DATA3, /* Display temperature, humidity and irrigator data */
-    PB1_SELECT_DATA4, /* Display WiFi status */
-    PB1_SELECT_COUNT, /* Before this, the screens shall change every time select button is pressed */
-    PB1_SELECT_DATA5, /* Level Settings menu */
-    PB1_SELECT_DATA6, /* Temperature and Humidity Settings menu */
+    SCREEN_LGT_PIR_LAMP_DATA, /* Display light, PIR, and Lamp data */
+    SCREEN_LVL_PUMP_DATA,     /* Display level and Pump data */
+    SCREEN_TEMP_HUM_IRR_DATA, /* Display temperature, humidity and irrigator data */
+    SCREEN_WIFI_STATUS,       /* Display WiFi status */
+    SCREEN_SELECT_NEXT,       /* Before this, the screens shall change every time select button is pressed */
+    SCREEN_LVL_SETT_MENU,     /* Level Settings menu */
+    SCREEN_TEMP_HUM_SETT_MENU,/* Temperature and Humidity Settings menu */
+    SCREEN_WIFI_SETT_MENU,    /* WiFi settins main menu */
+    SCREEN_WIFI_SETT_SUB_MENU,/* WiFi settins sub menu */
 };
 
 /* Struct to store all system-related data */

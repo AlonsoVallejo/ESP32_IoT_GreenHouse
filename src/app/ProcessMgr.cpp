@@ -145,14 +145,14 @@ void pButtonsCtrl(SystemData* data) {
 
         if (SelectbuttonState && (currentMillis - lastButtonPressTime > 300)) {
             lastButtonPressTime = currentMillis;
-            if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+            if (data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU) {
                 /* Navigate through systems settings screen menu */ 
                 data->currentSettingMenu++;
                 if (data->currentSettingMenu >= sizeof(Levelsettings) / sizeof(Levelsettings[0])) {
                     /* Reset to the first setting */
                     data->currentSettingMenu = 0;
                 }
-            } else if(data->currentDisplayDataSelec == PB1_SELECT_DATA6) {
+            } else if(data->currentDisplayDataSelec == SCREEN_TEMP_HUM_SETT_MENU) {
                 /* Navigate through temperature and humidity settings screen menu */
                 data->currentSettingMenu++;
                 if (data->currentSettingMenu >= sizeof(TempHumsettings) / sizeof(TempHumsettings[0])) {
@@ -160,32 +160,40 @@ void pButtonsCtrl(SystemData* data) {
                     data->currentSettingMenu = 0;
                 }
             } else {
-                /* Change the display screen */
-                data->currentDisplayDataSelec = static_cast<pb1Selector>((data->currentDisplayDataSelec + 1) % PB1_SELECT_COUNT);
+                /* Change display main screens by select button if wifi setting menus are not being used */
+                if( (data->currentDisplayDataSelec != SCREEN_WIFI_SETT_MENU) && (data->currentDisplayDataSelec != SCREEN_WIFI_SETT_SUB_MENU) ) {
+                    data->currentDisplayDataSelec = static_cast<pb1Selector>((data->currentDisplayDataSelec + 1) % SCREEN_SELECT_NEXT);
+                }
             }
         }
 
         if (escButtonState && (currentMillis - lastButtonPressTime > 300)) {
             lastButtonPressTime = currentMillis;
             data->currentSettingMenu = 0;
-            if(data->currentDisplayDataSelec == PB1_SELECT_DATA2) {
+            if(data->currentDisplayDataSelec == SCREEN_LVL_PUMP_DATA) {
                 /* If the current screen is the level and pump data screen, go to the temperature and humidity settings */
-                data->currentDisplayDataSelec = PB1_SELECT_DATA5;
-            } else if (data->currentDisplayDataSelec == PB1_SELECT_DATA3) {
+                data->currentDisplayDataSelec = SCREEN_LVL_SETT_MENU;
+            } else if (data->currentDisplayDataSelec == SCREEN_TEMP_HUM_IRR_DATA) {
                 /* If the current screen is the temperature and humidity data screen, go to the level settings */
-                data->currentDisplayDataSelec = PB1_SELECT_DATA6;
-            } else if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+                data->currentDisplayDataSelec = SCREEN_TEMP_HUM_SETT_MENU;
+            } else if(data->currentDisplayDataSelec == SCREEN_WIFI_STATUS) {
+                /* If the current screen is the WiFi status screen, go to the wifi settings */
+                data->currentDisplayDataSelec = SCREEN_WIFI_SETT_MENU;
+            } else if (data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU) {
                 /* If the current screen is the settings screen, go back to the previous screen */
-                data->currentDisplayDataSelec = PB1_SELECT_DATA2;
-            } else if(data->currentDisplayDataSelec == PB1_SELECT_DATA6) {
+                data->currentDisplayDataSelec = SCREEN_LVL_PUMP_DATA;
+            } else if(data->currentDisplayDataSelec == SCREEN_TEMP_HUM_SETT_MENU) {
                 /* If the current screen is the settings screen, go back to the previous screen */
-                data->currentDisplayDataSelec = PB1_SELECT_DATA3;
+                data->currentDisplayDataSelec = SCREEN_TEMP_HUM_IRR_DATA;
+            } else if(data->currentDisplayDataSelec == SCREEN_WIFI_SETT_MENU) {
+                /* If the current screen is the settings screen, go back to the previous screen */
+                data->currentDisplayDataSelec = SCREEN_WIFI_STATUS;
             } else {
-                /* */
+                /* Do nothing */
             }
         }
 
-        if (data->currentDisplayDataSelec == PB1_SELECT_DATA5) {
+        if (data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU) {
             if (upButtonState && (currentMillis - lastButtonPressTime > 300)) {
                 lastButtonPressTime = currentMillis;
                 /* Increment the current setting value */
@@ -201,7 +209,7 @@ void pButtonsCtrl(SystemData* data) {
                     (*Levelsettings[data->currentSettingMenu])--;
                 }
             }
-        } else if (data->currentDisplayDataSelec == PB1_SELECT_DATA6) {
+        } else if (data->currentDisplayDataSelec == SCREEN_TEMP_HUM_SETT_MENU) {
             if (upButtonState && (currentMillis - lastButtonPressTime > 300)) {
                 lastButtonPressTime = currentMillis;
                 /* Increment the current setting value */

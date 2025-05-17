@@ -95,7 +95,7 @@ void TaskControlActuators(void* pvParameters) {
 /* Task: Update display with sensor data */
 void TaskDisplay(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
-    bool debug = true; // Enable or disable logging
+    bool IsLog = true; // Enable or disable logging
     uint8_t* Levelsettings[] = {
         &data->maxLevelPercentage,
         &data->minLevelPercentage,
@@ -106,24 +106,32 @@ void TaskDisplay(void* pvParameters) {
     };
    
     for (;;) {
+        static uint32_t lastLogTime = 0;
+        uint32_t currentMillis = millis();
+
         switch (data->currentDisplayDataSelec) {
-            case PB1_SELECT_DATA1:
+            case SCREEN_LGT_PIR_LAMP_DATA:
                 displayLightAndPresence(data);
                 break;
-            case PB1_SELECT_DATA2:
+            case SCREEN_LVL_PUMP_DATA:
                 displayWaterLevelAndPump(data);
                 break;
-            case PB1_SELECT_DATA3:
+            case SCREEN_TEMP_HUM_IRR_DATA:
                 displayTemperatureAndHumidity(data);
                 break;
-            case PB1_SELECT_DATA4:
+            case SCREEN_WIFI_STATUS:
                 displayWiFiStatus(data);
                 break;
-            case PB1_SELECT_DATA5:
+            case SCREEN_LVL_SETT_MENU:
                 displayLevelSettings(data, *Levelsettings[data->currentSettingMenu]);
                 break;
-            case PB1_SELECT_DATA6:
+            case SCREEN_TEMP_HUM_SETT_MENU:
                 displayTempHumSettings(data, *TempHumsettings[data->currentSettingMenu]);
+                break;
+            case SCREEN_WIFI_SETT_MENU:
+            case SCREEN_WIFI_SETT_SUB_MENU:
+                data->oledDisplay->clearAllDisplay();
+                displayWiFiSettings(data);
                 break;
             default:
                 displayLightAndPresence(data);
@@ -132,17 +140,20 @@ void TaskDisplay(void* pvParameters) {
 
         data->oledDisplay->PrintdisplayData();
 
-        LogSerial("Lvl: " + String(data->levelPercentage) + "%", debug);
-        LogSerial(" Temp: " + String(data->sensorMgr->getTemperature()) + "C", debug);
-        LogSerial(" Hum: " + String(data->sensorMgr->getHumidity()) + "%", debug);
-        LogSerial(" ldr: " + String(data->sensorMgr->getLightSensorValue()), debug);
-        LogSerial(" PIR: " + String(data->PirPresenceDetected), debug);
-        LogSerial(" lamp: " + String(data->actuatorMgr->getLamp()->getOutstate()), debug);
-        LogSerial(" Pump: " + String(data->actuatorMgr->getPump()->getOutstate()), debug);
-        LogSerial(" lvlFlt: " + String(data->actuatorMgr->getLedIndicator()->getOutstate()), debug);
-        LogSerialn(" Irgtr: " + String(data->actuatorMgr->getIrrigator()->getOutstate()), debug);
+        if (currentMillis - lastLogTime >= SUBTASK_INTERVAL_1000_MS) {
+            lastLogTime = currentMillis;
+            LogSerial("Lvl: " + String(data->levelPercentage) + "%", IsLog);
+            LogSerial(" Temp: " + String(data->sensorMgr->getTemperature()) + "C", IsLog);
+            LogSerial(" Hum: " + String(data->sensorMgr->getHumidity()) + "%", IsLog);
+            LogSerial(" ldr: " + String(data->sensorMgr->getLightSensorValue()), IsLog);
+            LogSerial(" PIR: " + String(data->PirPresenceDetected), IsLog);
+            LogSerial(" lamp: " + String(data->actuatorMgr->getLamp()->getOutstate()), IsLog);
+            LogSerial(" Pump: " + String(data->actuatorMgr->getPump()->getOutstate()), IsLog);
+            LogSerial(" lvlFlt: " + String(data->actuatorMgr->getLedIndicator()->getOutstate()), IsLog);
+            LogSerialn(" Irgtr: " + String(data->actuatorMgr->getIrrigator()->getOutstate()), IsLog);
+        }
         
-        vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_1000_MS));
+        vTaskDelay(pdMS_TO_TICKS(SUBTASK_INTERVAL_100_MS));
     }
 }
 
@@ -150,26 +161,33 @@ void TaskSendDataToServer(void* pvParameters) {
     SystemData* data = (SystemData*)pvParameters;
     bool wifiConnecting = false; /* Flag to track if WiFi connection is being attempted */ 
     bool wifiConnectedMessagePrinted = false; /* Flag to track if the "WiFi connected!" message has been printed */ 
-    bool debug = true;
+    bool IsLog = true;
     pb1Selector previousDisplayDataSelec = data->currentDisplayDataSelec;
     static uint32_t lastSettingsFetchTime = 0;
     const char* serverUrl = data->SrvClient->getServerUrl();
-    
+    uint16_t customTaskDelay = 0;
+    static uint32_t lastWifiAttempt = 0;
+    const uint32_t wifiRetryInterval = 10000;
+
     for (;;) {
-        if (data->wifiManager->IsWiFiConnected()) {
+        if (strcmp(data->wifiManager->getSSID(), "DUMMY_WIFI_SSID") == 0 && strcmp(data->wifiManager->getPassword(), "DUMMY_WIFI_PASSWORD") == 0) {
+            LogSerialn("WiFi credentials are dummy. Please set correct SSID and password.", IsLog);
+            customTaskDelay = SUBTASK_INTERVAL_15_S;
+        } else if (data->wifiManager->IsWiFiConnected()) {
+            customTaskDelay = SUBTASK_INTERVAL_100_MS;
             wifiConnecting = false; /* Reset the flag once WiFi is connected */ 
             uint32_t currentMillis = millis();
             static uint32_t lastSendTime = 0;
             
             /* Execute this every time wifi connection is restablished */
             if (!wifiConnectedMessagePrinted) {
-                LogSerialn("WiFi connected! ESP32 IP Address: " + data->wifiManager->getWiFiLocalIp().toString(), debug);
+                LogSerialn("WiFi connected! ESP32 IP Address: " + data->wifiManager->getWiFiLocalIp().toString(), IsLog);
                 wifiConnectedMessagePrinted = true; 
 
                 /* Check if settings exist in the database */
                 if (!checkSettingsExistence(data, serverUrl)) {
                     /* Send default settings if they do not exist */
-                    LogSerialn("Sending default settings to the backend...", debug);
+                    LogSerialn("Sending default settings to the backend...", IsLog);
                     sendDefaultSettings(data, serverUrl);
                 }
 
@@ -178,22 +196,22 @@ void TaskSendDataToServer(void* pvParameters) {
             }
 
             /* Check if system settins have been manually modified */
-            if ( (previousDisplayDataSelec == PB1_SELECT_DATA5) && (data->currentDisplayDataSelec != PB1_SELECT_DATA5) || 
-                 (previousDisplayDataSelec == PB1_SELECT_DATA6) && (data->currentDisplayDataSelec != PB1_SELECT_DATA6) ) {
-                LogSerialn("Sending manual systems settings to the backend...", debug);
-                LogSerial("maxlvl: " + String(data->maxLevelPercentage), debug);
-                LogSerial(" minlvl: " + String(data->minLevelPercentage), debug);
-                LogSerial(" hotTmp: " + String(data->hotTemperature), debug);
-                LogSerialn(" lowHum: " + String(data->lowHumidity), debug);
+            if ( (previousDisplayDataSelec == SCREEN_LVL_SETT_MENU) && (data->currentDisplayDataSelec != SCREEN_LVL_SETT_MENU) || 
+                 (previousDisplayDataSelec == SCREEN_TEMP_HUM_SETT_MENU) && (data->currentDisplayDataSelec != SCREEN_TEMP_HUM_SETT_MENU) ) {
+                LogSerialn("Sending manual systems settings to the backend...", IsLog);
+                LogSerial("maxlvl: " + String(data->maxLevelPercentage), IsLog);
+                LogSerial(" minlvl: " + String(data->minLevelPercentage), IsLog);
+                LogSerial(" hotTmp: " + String(data->hotTemperature), IsLog);
+                LogSerialn(" lowHum: " + String(data->lowHumidity), IsLog);
                 sendManualSettings(data, serverUrl); 
             }
 
             /* Periodically fetch updated settings */
-            if ( (currentMillis - lastSettingsFetchTime >= SUBTASK_INTERVAL_15_S) && (data->currentDisplayDataSelec != PB1_SELECT_DATA5) ) {
+            if ( (currentMillis - lastSettingsFetchTime >= SUBTASK_INTERVAL_15_S) && (data->currentDisplayDataSelec != SCREEN_LVL_SETT_MENU) ) {
                 lastSettingsFetchTime = currentMillis;
-                LogSerialn("Fetching system settings from server...", debug);
+                LogSerialn("Fetching system settings from server...", IsLog);
                 fetchUpdatedSettings(data, serverUrl);
-            } else if( data->currentDisplayDataSelec == PB1_SELECT_DATA5 ) {
+            } else if( data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU ) {
                 lastSettingsFetchTime = currentMillis;
             } else {
                 /*  do nothing */
@@ -205,7 +223,7 @@ void TaskSendDataToServer(void* pvParameters) {
             if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_15_S) {
                 lastSendTime = currentMillis;
 
-                LogSerialn("Sending Sensor data to server...", debug);
+                LogSerialn("Sending Sensor data to server...", IsLog);
                 data->SrvClient->prepareData("type", "sensors");
                 data->SrvClient->prepareData("lvl", String(data->levelPercentage));
                 data->SrvClient->prepareData("tmp", String(data->sensorMgr->getTemperature()));
@@ -214,7 +232,7 @@ void TaskSendDataToServer(void* pvParameters) {
                 data->SrvClient->prepareData("pir", String(data->PirPresenceDetected));
                 data->SrvClient->sendPayload();
 
-                LogSerialn("Sending Actuators data to server...", debug);
+                LogSerialn("Sending Actuators data to server...", IsLog);
                 data->SrvClient->prepareData("type", "actuators");
                 data->SrvClient->prepareData("lmp", String(data->actuatorMgr->getLamp()->getOutstate()));
                 data->SrvClient->prepareData("pmp", String(data->actuatorMgr->getPump()->getOutstate()));
@@ -223,15 +241,18 @@ void TaskSendDataToServer(void* pvParameters) {
                 data->SrvClient->sendPayload();
             }
         } else {
+            customTaskDelay = SUBTASK_INTERVAL_100_MS;
             wifiConnectedMessagePrinted = false; /* Reset the flag when WiFi is disconnected */ 
-            if (!wifiConnecting) {
+            uint32_t now = millis();
+            if (!wifiConnecting || (now - lastWifiAttempt > wifiRetryInterval)) {
                 wifiConnecting = true; /* Set the flag to prevent multiple connection attempts */ 
-                LogSerialn("WiFi disconnected! Attempting to reconnect...", debug);
+                lastWifiAttempt = now;
+                LogSerialn("WiFi disconnected! Attempting to reconnect...", IsLog);
                 data->wifiManager->connectWiFi();
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100)); // Keep task responsive
+        vTaskDelay(pdMS_TO_TICKS(customTaskDelay));
     }
 }
 
@@ -249,8 +270,8 @@ void setup() {
         LogSerialn("Failed to create mutex", true);
     }
 
-    const char* ssid = "MEGACABLE-2.4G-FAA4"; /* ESP32 WROOM32 works with 2.4GHz signals */
-    const char* password = "3kK4H6W48P";
+    const char* ssid = "DUMMY_WIFI_SSID"; /* ESP32 WROOM32 works with 2.4GHz signals */
+    const char* password = "DUMMY_WIFI_PASSWORD"; /* WiFi password */
     const char* BackendServerUrl = "http://192.168.100.9:3000/"; /* Base URL for the backend server */
 
     static AnalogSensor analogSensor(SENSOR_LVL_PIN);
@@ -287,6 +308,19 @@ void setup() {
 
     static OledDisplay oledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS);
     static WiFiManager wifiManager(ssid, password);
+
+    /* Try to load saved credentials and connect */ 
+    String savedSsid, savedPassword;
+    if (wifiManager.loadCredentials(savedSsid, savedPassword)) {
+        LogSerialn("Loaded saved WiFi credentials for: " + savedSsid, true);
+        wifiManager.setSSID(savedSsid.c_str());
+        wifiManager.setPassword(savedPassword.c_str());
+        wifiManager.connectWiFi();
+
+    } else {
+        LogSerialn("No saved WiFi credentials found.", true);
+    }
+
     static ServerClient serverClient(BackendServerUrl, &wifiManager);
 
     static SystemData systemData = {
@@ -297,7 +331,7 @@ void setup() {
         &serverClient,
         /* Variables */
         true,
-        PB1_SELECT_DATA1,
+        SCREEN_LGT_PIR_LAMP_DATA,
         0,
         0,
         /** Dynamically updated settings */
