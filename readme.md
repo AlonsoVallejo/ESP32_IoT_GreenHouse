@@ -10,7 +10,9 @@ This project is a **integrated IoT solution for greenhouse monitoring and automa
 - **Robust multitasking:**  
   Uses FreeRTOS to run sensor reading, actuator control, display updates, and server communication in parallel for responsive and reliable operation.
 - **OLED display:**  
-  Real-time feedback of sensor readings, actuator states, WiFi status, and settings menus.
+  Real-time feedback of sensor readings, actuator states, WiFi status, device information, and settings menus.
+- **Device Info screen:**  
+  View device-specific information such as software version, chip model, and unique chip ID directly on the OLED display.
 - **Backend integration:**  
   Sends sensor and actuator data to a Node.js backend, which stores information in Firebase Realtime Database with CST timestamps. The backend also manages settings and provides RESTful APIs for configuration and monitoring.
 - **Automatic reconnection:**  
@@ -34,6 +36,7 @@ This project is a **integrated IoT solution for greenhouse monitoring and automa
 - **OLED Display**:
   - Updates the OLED screen with real-time sensor and actuator data.
   - Includes a **Settings Menu** for manual configuration of system parameters.
+  - Includes a **Device Info screen** to display software version, chip model, and chip ID.
 - **Data Transmission**:
   - Sends sensor and actuator data to the backend server every 15 seconds.
 
@@ -48,6 +51,13 @@ This project is a **integrated IoT solution for greenhouse monitoring and automa
   - Use the **Up** and **Down** buttons to adjust values.
   - Use the **ESC** button to save changes and exit the menu.
 - Automatically saves updated settings to the backend server when exiting the menu.
+
+### Device Info Screen
+- View device-specific information directly on the OLED display:
+  - **Software Version**
+  - **Chip Model**
+  - **Unique Chip ID**
+- Accessed through the main display navigation.
 
 ### WiFi Settings Menu
 - Allows user-friendly WiFi configuration and connection:

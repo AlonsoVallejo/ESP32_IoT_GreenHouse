@@ -107,6 +107,32 @@ void displayWiFiStatus(SystemData* data) {
     displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
 
+/* Displays device information.
+ * @param data Pointer to the SystemData structure containing sensor and actuator objects.
+ */
+void displayDeviceInfo(SystemData* data) {
+    char chipIdStr[18];
+    uint64_t chipId = ESP.getEfuseMac();
+    
+    data->oledDisplay->SetdisplayData(0, 0, "Device Info:");
+    data->oledDisplay->SetdisplayData(0, 10, "SW Ver: ");
+    data->oledDisplay->SetdisplayData(45, 10, DEV_SW_VERSION);
+
+    data->oledDisplay->SetdisplayData(0, 20, "Chip: ");
+    data->oledDisplay->SetdisplayData(30, 20, ESP.getChipModel());
+
+    data->oledDisplay->SetdisplayData(0, 30, "ChipID: ");
+    snprintf(chipIdStr, sizeof(chipIdStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+        (uint8_t)(chipId >> 40),
+        (uint8_t)(chipId >> 32),
+        (uint8_t)(chipId >> 24),
+        (uint8_t)(chipId >> 16),
+        (uint8_t)(chipId >> 8),
+        (uint8_t)chipId);
+    data->oledDisplay->SetdisplayData(0, 40, chipIdStr);
+    
+    displayFooter(data->oledDisplay, "Next", " ", "");
+}
 /* Displays the current selector state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param currentSettingMenu The current setting being displayed.

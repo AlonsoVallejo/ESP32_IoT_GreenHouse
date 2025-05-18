@@ -15,12 +15,15 @@
 #define LED_NO_FAIL_INDICATE (0x00) 
 #define LED_FAIL_INDICATE    (0x01) 
 
+#define DEV_SW_VERSION "1.0.1" 
+
 /* Enum for button selector states */
 enum pb1Selector {
     SCREEN_LGT_PIR_LAMP_DATA, /* Display light, PIR, and Lamp data */
     SCREEN_LVL_PUMP_DATA,     /* Display level and Pump data */
     SCREEN_TEMP_HUM_IRR_DATA, /* Display temperature, humidity and irrigator data */
     SCREEN_WIFI_STATUS,       /* Display WiFi status */
+    SCREEN_DEV_INFO,          /* Display device information */
     SCREEN_SELECT_NEXT,       /* Before this, the screens shall change every time select button is pressed */
     SCREEN_LVL_SETT_MENU,     /* Level Settings menu */
     SCREEN_TEMP_HUM_SETT_MENU,/* Temperature and Humidity Settings menu */

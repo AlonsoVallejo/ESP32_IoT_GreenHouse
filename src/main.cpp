@@ -137,6 +137,9 @@ void TaskDisplay(void* pvParameters) {
             case SCREEN_WIFI_STATUS:
                 displayWiFiStatus(data);
                 break;
+            case SCREEN_DEV_INFO:
+                displayDeviceInfo(data);
+                break;
             case SCREEN_LVL_SETT_MENU:
                 displayLevelSettings(data, *Levelsettings[data->currentSettingMenu]);
                 break;
