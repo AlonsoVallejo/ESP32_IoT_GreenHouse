@@ -12,6 +12,16 @@ enum wifiSettings_Type {
 #define HELD_BUTTON_TIME  (3000) // Time in ms to consider a button as held
 #define MIN_PASSWORD_LENGTH (8) // Minimum password length
 
+/*
+ * Displays header with the current screen name.
+ * @param oledDisplay Pointer to the OledDisplay object.
+ * @param header The header text to display.
+*/
+void displayHeader(OledDisplay* oledDisplay, const char* header) {
+    oledDisplay->SetdisplayData(0, 0, header);
+    oledDisplay->DrawLine(0, 8, SCREEN_WIDTH, 0, SSD1306_WHITE);
+}
+
 /* Displays footer with labels for next screen and settings.
  * @param oledDisplay Pointer to the OledDisplay object.
  * @param ltbottom Label for the left bottom corner.
@@ -30,6 +40,8 @@ void displayFooter(OledDisplay* oledDisplay, const char* ltbottom, const char* m
     uint16_t midX = (displayWidth - midWidth) / 2;
     uint16_t rtX = displayWidth - rtWidth;
 
+    oledDisplay->DrawLine(0, y - 2, displayWidth, 0, SSD1306_WHITE);
+
     oledDisplay->SetdisplayData(ltX, y, ltbottom);
     oledDisplay->SetdisplayData(midX, y, midbottom);
     oledDisplay->SetdisplayData(rtX, y, rtbottom);
@@ -39,14 +51,16 @@ void displayFooter(OledDisplay* oledDisplay, const char* ltbottom, const char* m
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayLightAndPresence(SystemData* data) {
-    data->oledDisplay->SetdisplayData(0, 0, "Light Sensor: ");
-    data->oledDisplay->SetdisplayData(80, 0, data->sensorMgr->getLightSensorValue() ? "Dark" : "Light");
+    displayHeader(data->oledDisplay, "Lamp Info");
 
-    data->oledDisplay->SetdisplayData(0, 10, "Presence: ");
-    data->oledDisplay->SetdisplayData(80, 10, data->PirPresenceDetected ? "YES" : "NO");
+    data->oledDisplay->SetdisplayData(0, 12, "Light Sensor: ");
+    data->oledDisplay->SetdisplayData(80, 12, data->sensorMgr->getLightSensorValue() ? "Dark" : "Light");
 
-    data->oledDisplay->SetdisplayData(0, 20, "Lamp: ");
-    data->oledDisplay->SetdisplayData(80, 20, data->actuatorMgr->getLamp()->getOutstate() ? "ON" : "OFF");
+    data->oledDisplay->SetdisplayData(0, 22, "Presence: ");
+    data->oledDisplay->SetdisplayData(80, 22, data->PirPresenceDetected ? "YES" : "NO");
+
+    data->oledDisplay->SetdisplayData(0, 32, "Lamp: ");
+    data->oledDisplay->SetdisplayData(80, 32, data->actuatorMgr->getLamp()->getOutstate() ? "ON" : "OFF");
 
     displayFooter(data->oledDisplay, "Next", " ", "");
 }
@@ -57,20 +71,22 @@ void displayLightAndPresence(SystemData* data) {
 void displayWaterLevelAndPump(SystemData* data) {
     uint16_t levelValue = data->sensorMgr->getLevelSensorValue();
 
-    data->oledDisplay->SetdisplayData(0, 0, "Water Level: ");
+    displayHeader(data->oledDisplay, "Pump Info");
+
+    data->oledDisplay->SetdisplayData(0, 12, "Water Level: ");
     if (levelValue >= SENSOR_LVL_OPENCKT_V) {
-        data->oledDisplay->SetdisplayData(80, 0, "OPEN");
+        data->oledDisplay->SetdisplayData(80, 12, "OPEN");
     } else if (levelValue <= SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V) {
-        data->oledDisplay->SetdisplayData(80, 0, "SHORT");
+        data->oledDisplay->SetdisplayData(80, 12, "SHORT");
     } else if (levelValue >= SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) {
-        data->oledDisplay->SetdisplayData(80, 0, "100%");
+        data->oledDisplay->SetdisplayData(80, 12, "100%");
     } else {
-        data->oledDisplay->SetdisplayData(80, 0, data->levelPercentage);
-        data->oledDisplay->SetdisplayData(105, 0, "%");
+        data->oledDisplay->SetdisplayData(80, 12, data->levelPercentage);
+        data->oledDisplay->SetdisplayData(105, 12, "%");
     }
 
-    data->oledDisplay->SetdisplayData(0, 10, "Pump: ");
-    data->oledDisplay->SetdisplayData(80, 10, data->actuatorMgr->getPump()->getOutstate() ? "ON" : "OFF");
+    data->oledDisplay->SetdisplayData(0, 22, "Pump: ");
+    data->oledDisplay->SetdisplayData(80, 22, data->actuatorMgr->getPump()->getOutstate() ? "ON" : "OFF");
 
     displayFooter(data->oledDisplay, "Next", " " , "Settings");
 }
@@ -79,17 +95,18 @@ void displayWaterLevelAndPump(SystemData* data) {
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayTemperatureAndHumidity(SystemData* data) {
+    displayHeader(data->oledDisplay, "Irrigator Info");
 
-    data->oledDisplay->SetdisplayData(0, 0, "Temperature: ");
-    data->oledDisplay->SetdisplayData(80, 0, data->sensorMgr->getTemperature());
-    data->oledDisplay->SetdisplayData(105, 0, "C");
+    data->oledDisplay->SetdisplayData(0, 12, "Temperature: ");
+    data->oledDisplay->SetdisplayData(80, 12, data->sensorMgr->getTemperature());
+    data->oledDisplay->SetdisplayData(105, 12, "C");
 
-    data->oledDisplay->SetdisplayData(0, 10, "Humidity: ");
-    data->oledDisplay->SetdisplayData(80, 10, data->sensorMgr->getHumidity());
-    data->oledDisplay->SetdisplayData(105, 10, "%");
+    data->oledDisplay->SetdisplayData(0, 22, "Humidity: ");
+    data->oledDisplay->SetdisplayData(80, 22, data->sensorMgr->getHumidity());
+    data->oledDisplay->SetdisplayData(105, 22, "%");
 
-    data->oledDisplay->SetdisplayData(0, 20, "Irrigator: ");
-    data->oledDisplay->SetdisplayData(80, 20, data->actuatorMgr->getIrrigator()->getOutstate() ? "ON" : "OFF");
+    data->oledDisplay->SetdisplayData(0, 32, "Irrigator: ");
+    data->oledDisplay->SetdisplayData(80, 32, data->actuatorMgr->getIrrigator()->getOutstate() ? "ON" : "OFF");
 
     displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
@@ -98,12 +115,13 @@ void displayTemperatureAndHumidity(SystemData* data) {
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  */
 void displayWiFiStatus(SystemData* data) {
+    displayHeader(data->oledDisplay, "Network Info");
+    
+    data->oledDisplay->SetdisplayData(0, 12, "WiFi: ");
+    data->oledDisplay->SetdisplayData(40, 12, data->wifiManager->getSSID());
+    data->oledDisplay->SetdisplayData(0, 32, "Status: ");
+    data->oledDisplay->SetdisplayData(45, 32, data->wifiManager->IsWiFiConnected() ? "Connected" : "Disconnected");
 
-    data->oledDisplay->SetdisplayData(0, 0, "WiFi: ");
-    data->oledDisplay->SetdisplayData(0, 10, data->wifiManager->getSSID());
-    data->oledDisplay->SetdisplayData(0, 20, "Status: ");
-    data->oledDisplay->SetdisplayData(45, 20, data->wifiManager->IsWiFiConnected() ? "Connected" : "Disconnected");
-    data->oledDisplay->SetdisplayData(0, 30, "");
     displayFooter(data->oledDisplay, "Next", " ", "Settings");
 }
 
@@ -113,15 +131,16 @@ void displayWiFiStatus(SystemData* data) {
 void displayDeviceInfo(SystemData* data) {
     char chipIdStr[18];
     uint64_t chipId = ESP.getEfuseMac();
-    
-    data->oledDisplay->SetdisplayData(0, 0, "Device Info:");
-    data->oledDisplay->SetdisplayData(0, 10, "SW Ver: ");
-    data->oledDisplay->SetdisplayData(45, 10, DEV_SW_VERSION);
 
-    data->oledDisplay->SetdisplayData(0, 20, "Chip: ");
-    data->oledDisplay->SetdisplayData(30, 20, ESP.getChipModel());
+    displayHeader(data->oledDisplay, "Device Info");
 
-    data->oledDisplay->SetdisplayData(0, 30, "ChipID: ");
+    data->oledDisplay->SetdisplayData(0, 12, "SW Ver: ");
+    data->oledDisplay->SetdisplayData(45, 12, DEV_SW_VERSION);
+
+    data->oledDisplay->SetdisplayData(0, 22, "Dev: ");
+    data->oledDisplay->SetdisplayData(30, 22, ESP.getChipModel());
+
+    data->oledDisplay->SetdisplayData(0, 32, "DevID: ");
     snprintf(chipIdStr, sizeof(chipIdStr), "%02X:%02X:%02X:%02X:%02X:%02X",
         (uint8_t)(chipId >> 40),
         (uint8_t)(chipId >> 32),
@@ -130,9 +149,10 @@ void displayDeviceInfo(SystemData* data) {
         (uint8_t)(chipId >> 8),
         (uint8_t)chipId);
     data->oledDisplay->SetdisplayData(0, 40, chipIdStr);
-    
+
     displayFooter(data->oledDisplay, "Next", " ", "");
 }
+
 /* Displays the current selector state.
  * @param data Pointer to the SystemData structure containing sensor and actuator objects.
  * @param currentSettingMenu The current setting being displayed.
@@ -143,10 +163,11 @@ void displayLevelSettings(SystemData* data, uint8_t currentValue) {
         "Max Level (%)",
         "Min Level (%)",
     };
-    data->oledDisplay->SetdisplayData(0, 0, "System settings: ");
+
+    displayHeader(data->oledDisplay, "Pump settings");
     data->oledDisplay->SetdisplayData(0, 10, settings[data->currentSettingMenu]);
-    data->oledDisplay->SetdisplayData(0, 20, "Value:");
-    data->oledDisplay->SetdisplayData(50, 20, currentValue);
+    data->oledDisplay->SetdisplayData(0, 20, "Set Value:");
+    data->oledDisplay->SetdisplayData(65, 20, currentValue);
 
     displayFooter(data->oledDisplay, "Param", "^ v", "save");
 }
@@ -162,10 +183,10 @@ void displayTempHumSettings(SystemData* data, uint8_t currentValue) {
         "Low Humidity (%)",
     };
 
-    data->oledDisplay->SetdisplayData(0, 0, "System settings: ");
+    displayHeader(data->oledDisplay, "Irrigator settings");
     data->oledDisplay->SetdisplayData(0, 10, settings[data->currentSettingMenu]);
-    data->oledDisplay->SetdisplayData(0, 20, "Value:");
-    data->oledDisplay->SetdisplayData(50, 20, currentValue);
+    data->oledDisplay->SetdisplayData(0, 20, "Set Value:");
+    data->oledDisplay->SetdisplayData(65, 20, currentValue);
 
     displayFooter(data->oledDisplay, "Param", "^ v", "save");
 }
@@ -197,7 +218,7 @@ wifiSettings_Type WifiSettinsMenu(SystemData* data) {
     uint32_t now = millis();
 
     /* Display menu options */
-    data->oledDisplay->SetdisplayData(0, 0, "WiFi Settings:");
+    displayHeader(data->oledDisplay, "WiFi Settings");
     for (int i = 0; i < menuCount; ++i) {
         String line = (i == menuIdx ? ">" : " ") + String(menuOptions[i]);
         data->oledDisplay->SetdisplayData(0, 10 + i * 10, line.c_str());
@@ -290,7 +311,7 @@ wifiSettings_Type WifiSettinsListNetworks(SystemData* data, String& selected_ssi
     }
 
     /* Display scanned SSIDs */
-    data->oledDisplay->SetdisplayData(0, 0, "Select WiFi:");
+    displayHeader(data->oledDisplay, "Select WiFi:");
     if (ssidList.empty()) {
         data->oledDisplay->SetdisplayData(0, 10, "No networks found");
     } else {

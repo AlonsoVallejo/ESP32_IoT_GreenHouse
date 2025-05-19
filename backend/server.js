@@ -91,7 +91,7 @@ setInterval(async () => {
  * Root endpoint to confirm the server is running
  */
 app.get("/", (req, res) => {
-  res.send("Firebase Server is Running!");
+  res.send("Backend Server is Running!");
 });
 
 /** 

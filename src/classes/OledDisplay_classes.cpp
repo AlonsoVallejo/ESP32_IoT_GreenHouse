@@ -96,6 +96,18 @@ void OledDisplay::SetdisplayData(int16_t posX, int16_t posY, double data) {
 }
 
 /**
+ * @brief Draws a line on the display.
+ * @param x X-coordinate of the line.
+ * @param y Y-coordinate of the line.
+ * @param w Width of the line.
+ * @param h Height of the line.
+ * @param color Color of the line.
+ */
+void OledDisplay::DrawLine(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+    display.drawLine(x, y, x + w, y + h, color); /* Draw a line on the display */
+}
+
+/**
  * @brief Sends the buffered display data to the OLED screen.
  */
 void OledDisplay::PrintdisplayData() {
