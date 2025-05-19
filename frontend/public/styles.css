@@ -221,10 +221,11 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    max-width: 320px;
+    width: fit-content;
     min-width: 0;
     font-size: 14px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    flex-wrap: wrap;
   }
 
   .device-selector h3 {
