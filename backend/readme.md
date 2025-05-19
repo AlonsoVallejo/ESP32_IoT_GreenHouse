@@ -2,20 +2,40 @@
 
 # Firebase Integration Server
 
-This project is a backend server that integrates with Firebase for storing data received from ESP32 devices.  
-It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and supports robust handling of internet connection interruptions.
+This backend receives data from ESP32 devices and stores it in Firebase Realtime Database using a **per-device structure** based on the ESP32 chip ID (MAC address).
 
 ---
 
 ## Features
 
 - **Data Handling**: Receives data from ESP32 devices via HTTP POST requests and stores it in Firebase Realtime Database.
+- **Per-Device Structure**: Organizes data under unique paths for each device based on its chip ID (MAC address).
 - **Irrigation Control Integration**: Supports receiving and storing irrigation system status (`ON`/`OFF`) from ESP32 devices.
 - **Default Settings Management**: Automatically sends default settings to the database if no settings exist when the ESP32 connects to the backend.
 - **Settings Fetching**: Allows ESP32 devices to fetch updated settings from the database every 15 seconds.
 - **Connectivity Monitoring**: Periodically checks for internet connectivity and dynamically reinitializes Firebase when WiFi or internet is recovered.
 - **CST Timestamp Integration**: Automatically generates timestamps in the `America/Mexico_City` timezone for accurate data logging.
 - **Public Backend Exposure**: Allows the backend to be exposed to the internet using ngrok for testing and temporary public access.
+
+---
+
+## Data Structure
+
+All data is now organized under the path:
+
+```
+devices/
+  XX:XX:XX:XX:XX:XX/
+    settings: { ... }                # Unique settings for each device
+    SensActHistory/
+      <auto_generated_key>/
+        sensorData: { ... }
+        actuatorData: { ... }
+        timestamp: ...
+```
+
+- **settings**: Only one JSON object per device, overwritten on update.
+- **SensActHistory**: Contains timestamped sensor and actuator data entries.
 
 ---
 
@@ -41,100 +61,106 @@ It is built using `Node.js`, `Express`, and the `Firebase Admin SDK` and support
 
 ---
 
-## Backend Changes
+## API Endpoints
 
-### New Endpoints
-
-#### `/getSettings`
-- **Method**: GET
-- **Description**: Checks if the `settings` JSON package exists in the database.
-- **Response**:
-  - If settings exist:
-    ```json
-    {
-      "maxLevel": 90,
-      "minLevel": 20,
-      "hotTemperature": 30,
-      "lowHumidity": 15
-    }
-    ```
-  - If settings do not exist:
-    ```json
-    {
-      "error": "No settings found in the database."
-    }
-    ```
-
-#### `/saveDefaultSettings`
-- **Method**: POST
-- **Description**: Saves default settings to the database if no settings exist.
-- **Request Body Example**:
+### `/updateSettings` (POST)
+- **Description**: Store or update settings for a device.
+- **Payload Example**:
   ```json
   {
-    "defaultSettings": {
-      "maxLevel": 90,
-      "minLevel": 20,
-      "hotTemperature": 30,
-      "lowHumidity": 15
+    "XX:XX:XX:XX:XX:XX": {
+      "settings": {
+        "maxLevel": 90,
+        "minLevel": 20,
+        "hotTemperature": 30,
+        "lowHumidity": 15
+      }
     }
   }
   ```
+- **Result**: Stored at `/devices/XX:XX:XX:XX:XX:XX/settings`.
+
+---
+
+### `/updateSensActHistory` (POST)
+- **Description**: Store a new sensor/actuator data entry for a device.
+- **Payload Example**:
+  ```json
+  {
+    "XX:XX:XX:XX:XX:XX": {
+      "sensorData": {
+        "lvl": 90,
+        "tmp": 25.5,
+        "hum": 60,
+        "ldr": 1,
+        "pir": 0
+      },
+      "actuatorData": {
+        "lmp": 1,
+        "pmp": 0,
+        "flt": 0,
+        "irr": 1
+      }
+    }
+  }
+  ```
+- **Result**: Appended under `/devices/XX:XX:XX:XX:XX:XX/SensActHistory/`.
+
+---
+
+### `/getSettings` (GET)
+- **Description**: Fetch settings for a device.
+- **Query**: `chipId=XX:XX:XX:XX:XX:XX`
 - **Response**:
-  - Success:
+  - If exists:
     ```json
     {
-      "message": "Default settings saved successfully!"
+      "maxLevel": 90,
+      "minLevel": 20,
+      "hotTemperature": 30,
+      "lowHumidity": 15
     }
     ```
-  - Failure:
+  - If not exists:
     ```json
     {
-      "error": "Failed to save default settings."
+      "error": "No settings found in the database for this device."
     }
     ```
 
-#### `/updateData`
-- **Method**: POST
-- **Description**: Stores sensor or actuator data in Firebase.
-- **Request Body Example**:
+---
+
+### `/getLastData` (GET)
+- **Description**: Fetch the latest sensor or actuator data for a device.
+- **Query**: `chipId=XX:XX:XX:XX:XX:XX&type=sensors` or `type=actuators`
+- **Response Example**:
   ```json
   {
-    "type": "sensor",
     "lvl": 90,
     "tmp": 25.5,
     "hum": 60,
-    "irr": 1
+    "ldr": 1,
+    "pir": 0,
+    "timestamp": "2024-06-01T12:34:56-06:00"
   }
   ```
-  - `irr`: Represents the irrigation system status (`1` for `ON`, `0` for `OFF`).
-
-#### `/getLastData`
-- **Method**: GET
-- **Description**: Retrieves the most recent sensor and actuator data from Firebase.
-- **Response Example**:
+  or
   ```json
   {
-    "sensorData": {
-      "lvl": 90,
-      "tmp": 25.5,
-      "hum": 60
-    },
-    "actuatorData": {
-      "irr": 1,
-      "lamp": 1
-    }
+    "lmp": 1,
+    "pmp": 0,
+    "flt": 0,
+    "irr": 1,
+    "timestamp": "2024-06-01T12:34:56-06:00"
   }
   ```
 
-#### `/checkConnectivity`
-- **Method**: GET
-- **Description**: Checks the backend's internet connectivity status.
-- **Response Example**:
-  ```json
-  {
-    "status": "connected"
-  }
-  ```
+---
+
+### `/getHistoryData` (GET)
+- **Description**: Fetch the last 60 entries of a specific sensor or actuator key for a device.
+- **Query**: `chipId=XX:XX:XX:XX:XX:XX&type=sensors&key=lvl`
+- **Response**: Array of objects with the requested key and timestamp.
 
 ---
 
@@ -208,26 +234,31 @@ To expose the local backend server to the internet:
 
 3. Send ESP32 data to the endpoint:
    ```
-   POST http://<host>:<port>/updateData
+   POST http://<host>:<port>/updateSensActHistory
    ```
    - Send JSON payload with sensor or actuator data, including irrigation status.
 
 4. Check for settings existence:
    ```
-   GET http://<host>:<port>/getSettings
+   GET http://<host>:<port>/getSettings?chipId=XX:XX:XX:XX:XX:XX
    ```
 
-5. Save default settings:
+5. Save or update settings:
    ```
-   POST http://<host>:<port>/saveDefaultSettings
+   POST http://<host>:<port>/updateSettings
    ```
 
 6. Retrieve the most recent data:
    ```
-   GET http://<host>:<port>/getLastData
+   GET http://<host>:<port>/getLastData?chipId=XX:XX:XX:XX:XX:XX&type=sensors
    ```
 
-7. Check connectivity status:
+7. Retrieve history data:
+   ```
+   GET http://<host>:<port>/getHistoryData?chipId=XX:XX:XX:XX:XX:XX&type=sensors&key=lvl
+   ```
+
+8. Check connectivity status:
    ```
    GET http://<host>:<port>/checkConnectivity
    ```
@@ -268,7 +299,35 @@ The server periodically checks internet connectivity every 10 seconds:
 
 ---
 
+## Example Firebase Structure
+
+```
+devices/
+  AA:BB:CC:DD:EE:FF/
+    settings: {
+      "maxLevel": 90,
+      "minLevel": 20,
+      "hotTemperature": 30,
+      "lowHumidity": 15
+    }
+    SensActHistory/
+      -Nabc123xyz/
+        sensorData: { ... }
+        actuatorData: { ... }
+        timestamp: ...
+      -Nabc456uvw/
+        sensorData: { ... }
+        actuatorData: { ... }
+        timestamp: ...
+```
+
+---
+
 ## Notes
+
+- All endpoints now require the device chip ID (MAC address) as the key or query parameter.
+- The backend and frontend must use the same chip ID format (`XX:XX:XX:XX:XX:XX`).
+- Settings are unique per device and not stored globally.
 - Firebase functions are not supported. Functions require a paid plan option.
 - Ensure Firebase credentials (`esp32_project_serviceAccountKey.json`) are valid.
 - Monitor server logs via PM2 to confirm connectivity changes and Firebase reinitialization.
