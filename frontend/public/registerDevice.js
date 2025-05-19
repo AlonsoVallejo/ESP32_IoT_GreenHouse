@@ -32,6 +32,9 @@ async function loadRegisteredDevices() {
     } else {
       selectedChipId = null;
       window.selectedChipId = null;
+      localStorage.removeItem("selectedChipId"); // Clear localStorage if no devices are registered
+      if (typeof loadSettings === "function") loadSettings();
+      if (typeof updateDashboard === "function") updateDashboard();
     }
   } catch (error) {
     console.error("Error loading registered devices:", error);
