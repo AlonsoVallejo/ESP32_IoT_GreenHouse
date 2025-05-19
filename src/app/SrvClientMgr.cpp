@@ -136,15 +136,15 @@ void sendSensActHistory(SystemData* data) {
     sensorData["lvl"] = data->levelPercentage;
     sensorData["tmp"] = data->sensorMgr->getTemperature();
     sensorData["hum"] = data->sensorMgr->getHumidity();
-    sensorData["ldr"] = data->sensorMgr->getLightSensorValue();
-    sensorData["pir"] = data->PirPresenceDetected;
+    sensorData["ldr"] = data->sensorMgr->getLightSensorValue() ? "1" : "0";
+    sensorData["pir"] = data->PirPresenceDetected ? "1" : "0";
 
     /* Pack actuator data */
     JsonObject actuatorData = root["actuatorData"].to<JsonObject>();
-    actuatorData["lmp"] = data->actuatorMgr->getLamp()->getOutstate();
-    actuatorData["pmp"] = data->actuatorMgr->getPump()->getOutstate();
-    actuatorData["flt"] = data->actuatorMgr->getLedIndicator()->getOutstate();
-    actuatorData["irr"] = data->actuatorMgr->getIrrigator()->getOutstate();
+    actuatorData["lmp"] = data->actuatorMgr->getLamp()->getOutstate() ? "1" : "0";
+    actuatorData["pmp"] = data->actuatorMgr->getPump()->getOutstate() ? "1" : "0";
+    actuatorData["flt"] = data->actuatorMgr->getLedIndicator()->getOutstate() ? "1" : "0";
+    actuatorData["irr"] = data->actuatorMgr->getIrrigator()->getOutstate() ? "1" : "0";
 
     String payload;
     serializeJson(doc, payload);

@@ -160,37 +160,43 @@ app.post("/updateSettings", async (req, res) => {
 });
 
 /** 
- * Endpoint to fetch the last data entry for sensors or actuators
+ * Endpoint to fetch the last data entry for sensors or actuators for a specific device
  * Request from frontend.
  * API endpoint: /getLastData
- * Query parameters: type (sensors or actuators)
+ * Query parameters: chipId (device MAC), type (sensors or actuators)
  */
 app.get("/getLastData", async (req, res) => {
-  console.log("Received request:", req.query); /** Log incoming request details */
-  const { type } = req.query;
+  const { chipId, type } = req.query;
 
-  /** Validate query parameter */
+  /** Validate query parameters */
+  if (!chipId) {
+    return res.status(400).send({ error: "Missing 'chipId' query parameter." });
+  }
   if (!type || (type !== "sensors" && type !== "actuators")) {
     return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
   }
 
-  const dbRef = type === "actuators" ? "actuatorData" : "sensorData";
-
   if (db) {
     try {
-      /** Fetch the most recent entry */
-      const snapshot = await db.ref(dbRef).orderByKey().limitToLast(1).once("value");
+      /** Fetch the most recent entry from SensActHistory */
+      const snapshot = await db.ref(`devices/${chipId}/SensActHistory`).orderByKey().limitToLast(1).once("value");
       const data = snapshot.val();
 
       if (data) {
-        const lastEntry = Object.values(data)[0]; /** Get the most recent entry */
-        res.send(lastEntry);
+        const lastEntry = Object.values(data)[0];
+        if (type === "sensors" && lastEntry.sensorData) {
+          res.send({ ...lastEntry.sensorData, timestamp: lastEntry.timestamp });
+        } else if (type === "actuators" && lastEntry.actuatorData) {
+          res.send({ ...lastEntry.actuatorData, timestamp: lastEntry.timestamp });
+        } else {
+          res.status(404).send({ error: `No ${type} data found in the last entry.` });
+        }
       } else {
         res.status(404).send({ error: "No data found." });
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
-      res.status(500).send({ error: "Error fetching data from Firebase." });
+      console.error("Error fetching last data:", error);
+      res.status(500).send({ error: "Error fetching last data from Firebase." });
     }
   } else {
     res.status(500).send({ error: "Firebase is not initialized." });
@@ -201,20 +207,20 @@ app.get("/getLastData", async (req, res) => {
  * Endpoint to fetch historical data (last 60 entries) for sensors or actuators
  * Request from frontend.
  * API endpoint: /getHistoryData
- * Query parameters: type (sensors or actuators), key (specific key to filter data)
+ * Query parameters: chipId (device MAC), type (sensors or actuators)
  */
 app.get("/getHistoryData", async (req, res) => {
-  const { type, key } = req.query;
+  const { chipId, type } = req.query;
 
   /** Validate query parameters */
+  if (!chipId) {
+    return res.status(400).send({ error: "Missing 'chipId' query parameter." });
+  }
   if (!type || (type !== "sensors" && type !== "actuators")) {
     return res.status(400).send({ error: "Invalid or missing 'type' query parameter. Use 'sensors' or 'actuators'." });
   }
-  if (!key) {
-    return res.status(400).send({ error: "Missing 'key' query parameter." });
-  }
 
-  const dbRef = type === "actuators" ? "actuatorData" : "sensorData";
+  const dbRef = `devices/${chipId}/SensActHistory`;
 
   if (db) {
     try {
@@ -223,11 +229,20 @@ app.get("/getHistoryData", async (req, res) => {
       const data = snapshot.val();
 
       if (data) {
-        /** Filter the data to include only entries with the specified key */
-        const filteredData = Object.values(data).filter((entry) => entry[key] !== undefined);
-
-        /** Send the raw data to the frontend */
-        res.send(filteredData.reverse()); /** Reverse to show the most recent first */
+        /** Map to only the requested type data */
+        const result = Object.values(data)
+          .map(entry => {
+            if (type === "sensors" && entry.sensorData) {
+              return { ...entry.sensorData, timestamp: entry.timestamp };
+            } else if (type === "actuators" && entry.actuatorData) {
+              return { ...entry.actuatorData, timestamp: entry.timestamp };
+            } else {
+              return null;
+            }
+          })
+          .filter(entry => entry !== null)
+          .reverse(); /** Most recent first */
+        res.send(result);
       } else {
         res.status(404).send({ error: "No data found." });
       }
@@ -244,24 +259,24 @@ app.get("/getHistoryData", async (req, res) => {
  * Endpoint to save settings data from the frontend to Firebase
  * Request from frontend.
  * API endpoint: /saveSettings
- * Payload format: { "userSettings": {...} }
+ * Payload format: { "chipId": "XX:XX:XX:XX:XX:XX", "userSettings": {...} }
  */
 app.post("/saveSettings", async (req, res) => {
-  const { userSettings } = req.body;
+  const { chipId, userSettings } = req.body;
 
   /** Validate input */
-  if (!userSettings) {
-    return res.status(400).send({ error: "Invalid input data" });
+  if (!chipId || !userSettings) {
+    return res.status(400).send({ error: "Invalid input data: chipId and userSettings are required." });
   }
 
-  console.log("Received user settings:", userSettings);
+  console.log("Received user settings for", chipId, ":", userSettings);
 
   if (db) {
     try {
-      /** Save settings to Firebase under the 'settings' path */
-      await db.ref("settings").set(userSettings);
+      /** Save settings to Firebase under the device's settings path */
+      await db.ref(`devices/${chipId}/settings`).set(userSettings);
 
-      console.log("Settings saved to Firebase:", userSettings);
+      console.log("Settings saved to Firebase for", chipId, ":", userSettings);
       res.send({ message: "Settings saved successfully!" });
     } catch (error) {
       console.error("Error saving settings to Firebase:", error);
@@ -286,12 +301,12 @@ app.get("/getSettings", async (req, res) => {
 
   if (db) {
     try {
-      /** Fetch settings from Firebase for this device */
+      /** Fetch settings from /devices/{chipId}/settings */
       const snapshot = await db.ref(`devices/${chipId}/settings`).once("value");
       const settings = snapshot.val();
 
-      if (settings) {
-        res.send(settings); /** Send the settings to the frontend */
+      if (settings !== null && typeof settings === "object") {
+        res.send(settings); /** Send the settings object */
       } else {
         res.status(404).send({ error: "No settings found in the database for this device." });
       }
@@ -301,6 +316,42 @@ app.get("/getSettings", async (req, res) => {
     }
   } else {
     res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
+/** 
+ * Endpoint to register a new device with alias
+ * Request from frontend.
+ * API endpoint: /registerDevice
+ * Payload format: { "chipId": "unique_chip_id", "alias": "device_alias", "registeredAt": "timestamp" }
+ */
+app.post("/registerDevice", async (req, res) => {
+  const { chipId, alias, registeredAt } = req.body;
+  if (!chipId) return res.status(400).send({ error: "Missing chipId" });
+  try {
+    await db.ref(`RegisteredDevices/${chipId}`).set({
+      alias: alias || "",
+      registeredAt: registeredAt || new Date().toISOString()
+    });
+    res.send({ message: "Device registered successfully!" });
+  } catch (error) {
+    res.status(500).send({ error: "Failed to register device" });
+  }
+});
+
+/** 
+ * Endpoint to get all registered devices
+ * Request from frontend.
+ * API endpoint: /getRegisteredDevices
+ * Returns a list of registered devices with their aliases and registration dates
+ */
+app.get("/getRegisteredDevices", async (req, res) => {
+  try {
+    const snapshot = await db.ref("RegisteredDevices").once("value");
+    const devices = snapshot.val() || {};
+    res.send(devices);
+  } catch (error) {
+    res.status(500).send({ error: "Failed to fetch registered devices" });
   }
 });
 

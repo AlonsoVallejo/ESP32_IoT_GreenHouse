@@ -8,9 +8,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
 <body>
-  <h1>GreenHouse Monitoring System</h1>
-  <div class="settings-icon" id="settings-icon">
-    <i class="fas fa-wrench"></i>
+  <div class="header-bar">
+    <h1>GreenHouse Monitoring System</h1>
+    <div class="device-selector" id="device-selector">
+      <h3>Devices</h3>
+      <select id="device-list"></select>
+      <button id="add-device-btn">Add Device</button>
+    </div>
+    <div class="settings-icon" id="settings-icon">
+      <i class="fas fa-wrench"></i>
+    </div>
   </div>
   <div class="settings-menu" id="settings-menu" style="display: none;">
     <h3>System Settings</h3>
@@ -26,12 +33,25 @@
       <button type="submit">Save</button>
     </form>
   </div>
+  <div id="add-device-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" id="close-modal">&times;</span>
+      <h3>Register New Device</h3>
+      <form id="add-device-form">
+        <label for="chip-id-input">Chip ID (MAC):</label>
+        <input type="text" id="chip-id-input" required placeholder="XX:XX:XX:XX:XX:XX" pattern="^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$" />
+        <label for="alias-input">Alias:</label>
+        <input type="text" id="alias-input" required placeholder="e.g. My Greenhouse" />
+        <button type="submit">Register</button>
+      </form>
+    </div>
+  </div>
   <div class="container">
     <div class="group" id="group1">
       <h2>🔆 Light, PIR & Lamp</h2>
     </div>
     <div class="group" id="group2">
-      <h2>💧 Water, Fault & Pump</h2>
+      <h2>💧 Level, Fault & Pump</h2>
     </div>
     <div class="group" id="group3">
       <h2>🌡️ Temperature & Humidity</h2>

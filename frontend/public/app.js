@@ -23,17 +23,21 @@ const historyData = {
   irr: [] /** Irrigation Status */
 };
 
+let selectedChipId = null;
+let registeredDevices = {};
+
 /** 
  * Fetches data from the backend server for a specified type (e.g., sensors or actuators).
  * Includes the "ngrok-skip-browser-warning" header to bypass ngrok's warning page.
  */
 async function fetchData(type) {
-  const endpoint = type === "sensors" ? "getLastData?type=sensors" : "getLastData?type=actuators"; /** Dynamically construct the endpoint */
-  const finalUrl = `${apiUrl}${endpoint}`; /** Construct the full URL */
+  if (!selectedChipId) return null;
+  const endpoint = `getLastData?chipId=${encodeURIComponent(selectedChipId)}&type=${type}`;
+  const finalUrl = `${apiUrl}${endpoint}`;
   try {
     const response = await fetch(finalUrl, {
       headers: {
-        "ngrok-skip-browser-warning": "true", /** Bypass ngrok warning */
+        "ngrok-skip-browser-warning": "true",
       },
     });
     if (!response.ok) throw new Error(`Failed to fetch ${type} data`);
@@ -146,9 +150,13 @@ function flipCard(card, key) {
     const historyList = card.querySelector(".history-list");
     historyList.innerHTML = "";
 
-    const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors"; /** Determine the type */
-    const endpoint = `getHistoryData?type=${type}&key=${key}`; /** Construct the endpoint */
-    const historyApiUrl = `${apiUrl}${endpoint}`; /** Construct the full URL */
+    const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors";
+    if (!selectedChipId) {
+      historyList.innerHTML = "<div class='history-item'>No device selected.</div>";
+      return;
+    }
+    const endpoint = `getHistoryData?chipId=${encodeURIComponent(selectedChipId)}&type=${type}&key=${key}`;
+    const historyApiUrl = `${apiUrl}${endpoint}`;
 
     fetch(historyApiUrl)
       .then((response) => {
@@ -156,7 +164,6 @@ function flipCard(card, key) {
         return response.json();
       })
       .then((history) => {
-        /** Process and display the fetched history */
         history.forEach((item) => {
           const value = item[key] !== undefined
             ? key === "ldr" ? (item[key] === "1" ? "Dark" : "Light")
@@ -258,17 +265,13 @@ async function updateDashboard() {
  * Fetch current settings from the backend and populate the settings menu
  */
 async function loadSettings() {
-  const endpoint = "getSettings"; /** Define the endpoint */
-  const settingsApiUrl = `${apiUrl}${endpoint}`; /** Construct the full URL */
-
+  if (!selectedChipId) return;
+  const endpoint = `getSettings?chipId=${encodeURIComponent(selectedChipId)}`;
+  const settingsApiUrl = `${apiUrl}${endpoint}`;
   try {
     const response = await fetch(settingsApiUrl);
     if (!response.ok) throw new Error("Failed to fetch settings");
-
     const settings = await response.json();
-    console.log("Fetched settings:", settings);
-
-    /** Populate the text boxes with the current settings */
     document.getElementById("min-level").value = settings.minLevel !== "NA" ? settings.minLevel : "";
     document.getElementById("max-level").value = settings.maxLevel !== "NA" ? settings.maxLevel : "";
     document.getElementById("low-humidity").value = settings.lowHumidity !== "NA" ? settings.lowHumidity : "";
@@ -279,11 +282,64 @@ async function loadSettings() {
   }
 }
 
+/** Fetch registered devices from backend and populate selector */
+async function loadRegisteredDevices() {
+  try {
+    const response = await fetch(`${apiUrl}getRegisteredDevices`);
+    if (!response.ok) throw new Error("Failed to fetch registered devices");
+    registeredDevices = await response.json();
+
+    const deviceList = document.getElementById("device-list");
+    deviceList.innerHTML = "";
+
+    Object.entries(registeredDevices).forEach(([chipId, info]) => {
+      const option = document.createElement("option");
+      option.value = chipId;
+      option.textContent = info.alias ? `${info.alias} (${chipId})` : chipId;
+      deviceList.appendChild(option);
+    });
+
+    // Restore last selected device from localStorage, or select the first one
+    const lastChipId = localStorage.getItem("selectedChipId");
+    if (lastChipId && registeredDevices[lastChipId]) {
+      deviceList.value = lastChipId;
+      selectedChipId = lastChipId;
+    } else if (deviceList.options.length > 0) {
+      selectedChipId = deviceList.value;
+    } else {
+      selectedChipId = null;
+    }
+  } catch (error) {
+    console.error("Error loading registered devices:", error);
+  }
+}
+
+/** Register a new device */
+async function registerDevice(chipId, alias) {
+  try {
+    const registeredAt = new Date().toISOString();
+    const response = await fetch(`${apiUrl}registerDevice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chipId, alias, registeredAt }),
+    });
+    if (!response.ok) throw new Error("Failed to register device");
+    await loadRegisteredDevices();
+    document.getElementById("device-list").value = chipId;
+    selectedChipId = chipId;
+    localStorage.setItem("selectedChipId", chipId);
+    alert("Device registered successfully!");
+  } catch (error) {
+    alert("Failed to register device. " + error.message);
+  }
+}
+
 /** Call loadSettings when the page loads */
-window.addEventListener("load", () => {
-  loadSettings(); /** Load current settings */
-  updateDashboard(); /** Initial update on page load */
-  setInterval(updateDashboard, 5000); /** Refresh the dashboard every 5 seconds */
+window.addEventListener("load", async () => {
+  await loadRegisteredDevices();
+  loadSettings();
+  updateDashboard();
+  setInterval(updateDashboard, 5000);
 });
 
 // Toggle settings menu visibility
@@ -353,6 +409,10 @@ const settingsForm = document.getElementById("settings-form");
 
 settingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!selectedChipId) {
+    alert("Please select a device first.");
+    return;
+  }
 
   /** Get input values */
   const minLevelInput = document.getElementById("min-level");
@@ -391,7 +451,7 @@ settingsForm.addEventListener("submit", (event) => {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ userSettings }),
+    body: JSON.stringify({ chipId: selectedChipId, userSettings }),
   })
     .then((response) => {
       if (!response.ok) throw new Error("Failed to save settings");
@@ -401,4 +461,37 @@ settingsForm.addEventListener("submit", (event) => {
       console.error("Error saving settings:", error);
       alert("Failed to save settings.");
     });
+});
+
+// Handle device selection change
+document.getElementById("device-list").addEventListener("change", (e) => {
+  selectedChipId = e.target.value;
+  localStorage.setItem("selectedChipId", selectedChipId);
+  loadSettings();
+  updateDashboard();
+});
+
+// Handle Add Device button
+document.getElementById("add-device-btn").addEventListener("click", () => {
+  document.getElementById("add-device-modal").style.display = "flex";
+});
+
+// Handle modal close
+document.getElementById("close-modal").onclick = () => {
+  document.getElementById("add-device-modal").style.display = "none";
+};
+
+// Handle device registration form
+document.getElementById("add-device-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const chipId = document.getElementById("chip-id-input").value.trim().toUpperCase();
+  const alias = document.getElementById("alias-input").value.trim();
+  if (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(chipId)) {
+    alert("Invalid Chip ID format. Use XX:XX:XX:XX:XX:XX");
+    return;
+  }
+  await registerDevice(chipId, alias);
+  document.getElementById("add-device-modal").style.display = "none";
+  loadSettings();
+  updateDashboard();
 });
