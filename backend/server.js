@@ -106,6 +106,8 @@ app.post("/updateSensActHistory", async (req, res) => {
   const chipId = Object.keys(body)[0];
   const data = body[chipId];
 
+  console.log("Received SensActHistory data for chipId:", chipId, "Data:", data);
+
   if (!data) {
     return res.status(400).send({ error: "Invalid payload" });
   }
@@ -115,11 +117,25 @@ app.post("/updateSensActHistory", async (req, res) => {
   if (db) {
     try {
       /** Store under /devices/{chipId}/SensActHistory/ */
-      await db.ref(`devices/${chipId}/SensActHistory`).push({
+      const ref = db.ref(`devices/${chipId}/SensActHistory`);
+      const newEntryRef = await ref.push({
         sensorData: data.sensorData,
         actuatorData: data.actuatorData,
         timestamp: data.timestamp
       });
+
+      /** Enforce only last 60 entries */
+      const snapshot = await ref.orderByKey().once("value");
+      const entries = snapshot.val();
+      const keys = entries ? Object.keys(entries) : [];
+      if (keys.length > 60) {
+        /** Sort keys (oldest first) and remove the oldest */
+        const keysToDelete = keys.sort().slice(0, keys.length - 60);
+        for (const key of keysToDelete) {
+          await ref.child(key).remove();
+        }
+      }
+
       res.send({ message: "Sensor/Actuator history stored successfully!" });
     } catch (error) {
       console.error("Error saving history:", error);
@@ -140,6 +156,8 @@ app.post("/updateSettings", async (req, res) => {
   const body = req.body;
   const chipId = Object.keys(body)[0];
   const data = body[chipId];
+
+  console.log("Received settings data for chipId:", chipId, "Data:", data);
 
   if (!data || !data.settings) {
     return res.status(400).send({ error: "Invalid payload" });
@@ -167,6 +185,8 @@ app.post("/updateSettings", async (req, res) => {
  */
 app.get("/getLastData", async (req, res) => {
   const { chipId, type } = req.query;
+
+  console.log("Received request for last data:", req.query);
 
   /** Validate query parameters */
   if (!chipId) {
@@ -211,6 +231,8 @@ app.get("/getLastData", async (req, res) => {
  */
 app.get("/getHistoryData", async (req, res) => {
   const { chipId, type } = req.query;
+
+  console.log("Received request for history data:", req.query);
 
   /** Validate query parameters */
   if (!chipId) {
@@ -264,6 +286,8 @@ app.get("/getHistoryData", async (req, res) => {
 app.post("/saveSettings", async (req, res) => {
   const { chipId, userSettings } = req.body;
 
+  console.log("Received request to save settings:", req.body);
+
   /** Validate input */
   if (!chipId || !userSettings) {
     return res.status(400).send({ error: "Invalid input data: chipId and userSettings are required." });
@@ -299,6 +323,8 @@ app.get("/getSettings", async (req, res) => {
     return res.status(400).send({ error: "Missing 'chipId' query parameter." });
   }
 
+  console.log("Received request to fetch settings for chipId:", chipId);
+
   if (db) {
     try {
       /** Fetch settings from /devices/{chipId}/settings */
@@ -328,6 +354,9 @@ app.get("/getSettings", async (req, res) => {
 app.post("/registerDevice", async (req, res) => {
   const { chipId, alias, registeredAt } = req.body;
   if (!chipId) return res.status(400).send({ error: "Missing chipId" });
+
+  console.log("Received request to register device:", req.body);
+
   try {
     await db.ref(`RegisteredDevices/${chipId}`).set({
       alias: alias || "",
@@ -346,12 +375,32 @@ app.post("/registerDevice", async (req, res) => {
  * Returns a list of registered devices with their aliases and registration dates
  */
 app.get("/getRegisteredDevices", async (req, res) => {
+
+  console.log("Received request to fetch registered devices");
+  
   try {
     const snapshot = await db.ref("RegisteredDevices").once("value");
     const devices = snapshot.val() || {};
     res.send(devices);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch registered devices" });
+  }
+});
+
+/** 
+ * Endpoint to remove a registered device
+ * API endpoint: /removeDevice
+ * Payload: { chipId: "XX:XX:XX:XX:XX:XX" }
+ */
+app.post("/removeDevice", async (req, res) => {
+  const { chipId } = req.body;
+  if (!chipId) return res.status(400).send({ error: "Missing chipId" });
+
+  try {
+    await db.ref(`RegisteredDevices/${chipId}`).remove();
+    res.send({ message: "Device removed successfully!" });
+  } catch (error) {
+    res.status(500).send({ error: "Failed to remove device" });
   }
 });
 

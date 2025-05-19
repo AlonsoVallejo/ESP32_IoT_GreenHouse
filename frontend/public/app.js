@@ -23,16 +23,13 @@ const historyData = {
   irr: [] /** Irrigation Status */
 };
 
-let selectedChipId = null;
-let registeredDevices = {};
-
 /** 
  * Fetches data from the backend server for a specified type (e.g., sensors or actuators).
  * Includes the "ngrok-skip-browser-warning" header to bypass ngrok's warning page.
  */
 async function fetchData(type) {
-  if (!selectedChipId) return null;
-  const endpoint = `getLastData?chipId=${encodeURIComponent(selectedChipId)}&type=${type}`;
+  if (!window.selectedChipId) return null;
+  const endpoint = `getLastData?chipId=${encodeURIComponent(window.selectedChipId)}&type=${type}`;
   const finalUrl = `${apiUrl}${endpoint}`;
   try {
     const response = await fetch(finalUrl, {
@@ -151,11 +148,11 @@ function flipCard(card, key) {
     historyList.innerHTML = "";
 
     const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors";
-    if (!selectedChipId) {
+    if (!window.selectedChipId) {
       historyList.innerHTML = "<div class='history-item'>No device selected.</div>";
       return;
     }
-    const endpoint = `getHistoryData?chipId=${encodeURIComponent(selectedChipId)}&type=${type}&key=${key}`;
+    const endpoint = `getHistoryData?chipId=${encodeURIComponent(window.selectedChipId)}&type=${type}&key=${key}`;
     const historyApiUrl = `${apiUrl}${endpoint}`;
 
     fetch(historyApiUrl)
@@ -199,6 +196,12 @@ function flipCard(card, key) {
  * Fetches and updates the dashboard with the latest sensor and actuator data.
  */
 async function updateDashboard() {
+  if (!window.selectedChipId) {
+    document.getElementById("status-text").textContent = "Please register and select a device.";
+    // Optionally, hide cards/groups here
+    return;
+  }
+
   const g1 = document.getElementById("group1"); // Group for cards like Ambient Light, Presence, and Lamp
   const g2 = document.getElementById("group2"); // Group for cards like Water Level, Sensor Fault, and Pump
   const g3 = document.getElementById("group3"); // Group for cards like Temperature and Humidity
@@ -254,7 +257,7 @@ async function updateDashboard() {
     }
   } else {
     /** If no update time is available */
-    statusText.textContent = "Server/Internet connection error: Check server is running or WiFi connection.";
+    statusText.textContent = "No data found for this device. Please check if the device is powered on and connected to the internet.";
     status.style.color = "#ff8888"; // Red for error
     statusIcon.className = "fas fa-exclamation-triangle";
     statusIcon.style.color = "#ff5555"; /** Red for error */
@@ -265,11 +268,19 @@ async function updateDashboard() {
  * Fetch current settings from the backend and populate the settings menu
  */
 async function loadSettings() {
-  if (!selectedChipId) return;
-  const endpoint = `getSettings?chipId=${encodeURIComponent(selectedChipId)}`;
+  if (!window.selectedChipId) return;
+  const endpoint = `getSettings?chipId=${encodeURIComponent(window.selectedChipId)}`;
   const settingsApiUrl = `${apiUrl}${endpoint}`;
   try {
     const response = await fetch(settingsApiUrl);
+    if (response.status === 404) {
+      alert("No data found for this device. Please check if the device is powered on and connected to the internet.");
+      document.getElementById("min-level").value = "";
+      document.getElementById("max-level").value = "";
+      document.getElementById("low-humidity").value = "";
+      document.getElementById("hot-temperature").value = "";
+      return;
+    }
     if (!response.ok) throw new Error("Failed to fetch settings");
     const settings = await response.json();
     document.getElementById("min-level").value = settings.minLevel !== "NA" ? settings.minLevel : "";
@@ -282,61 +293,11 @@ async function loadSettings() {
   }
 }
 
-/** Fetch registered devices from backend and populate selector */
-async function loadRegisteredDevices() {
-  try {
-    const response = await fetch(`${apiUrl}getRegisteredDevices`);
-    if (!response.ok) throw new Error("Failed to fetch registered devices");
-    registeredDevices = await response.json();
-
-    const deviceList = document.getElementById("device-list");
-    deviceList.innerHTML = "";
-
-    Object.entries(registeredDevices).forEach(([chipId, info]) => {
-      const option = document.createElement("option");
-      option.value = chipId;
-      option.textContent = info.alias ? `${info.alias} (${chipId})` : chipId;
-      deviceList.appendChild(option);
-    });
-
-    // Restore last selected device from localStorage, or select the first one
-    const lastChipId = localStorage.getItem("selectedChipId");
-    if (lastChipId && registeredDevices[lastChipId]) {
-      deviceList.value = lastChipId;
-      selectedChipId = lastChipId;
-    } else if (deviceList.options.length > 0) {
-      selectedChipId = deviceList.value;
-    } else {
-      selectedChipId = null;
-    }
-  } catch (error) {
-    console.error("Error loading registered devices:", error);
-  }
-}
-
-/** Register a new device */
-async function registerDevice(chipId, alias) {
-  try {
-    const registeredAt = new Date().toISOString();
-    const response = await fetch(`${apiUrl}registerDevice`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chipId, alias, registeredAt }),
-    });
-    if (!response.ok) throw new Error("Failed to register device");
-    await loadRegisteredDevices();
-    document.getElementById("device-list").value = chipId;
-    selectedChipId = chipId;
-    localStorage.setItem("selectedChipId", chipId);
-    alert("Device registered successfully!");
-  } catch (error) {
-    alert("Failed to register device. " + error.message);
-  }
-}
-
 /** Call loadSettings when the page loads */
 window.addEventListener("load", async () => {
-  await loadRegisteredDevices();
+  if (typeof loadRegisteredDevices === "function") {
+    await loadRegisteredDevices();
+  }
   loadSettings();
   updateDashboard();
   setInterval(updateDashboard, 5000);
@@ -368,40 +329,6 @@ settingsIcon.addEventListener("click", () => {
   }
 });
 
-// Handle form submissions for each group
-document.querySelectorAll('.settings-menu form').forEach(form => {
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-
-    const groupId = form.id.split('-')[2]; // Extract group ID (e.g., "group1")
-    const minValue = form.querySelector('input[name="min-value"]').value;
-    const maxValue = form.querySelector('input[name="max-value"]').value;
-
-    // Validate input
-    if (parseFloat(minValue) >= parseFloat(maxValue)) {
-      alert('Minimum value must be less than the maximum value.');
-      return;
-    }
-
-    // Send settings to the server
-    fetch('/savePumpSettings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ groupId, minValue, maxValue }),
-    })
-      .then(response => {
-        if (!response.ok) throw new Error('Failed to save settings');
-        alert('Settings saved successfully!');
-      })
-      .catch(error => {
-        console.error('Error saving settings:', error);
-        alert('Failed to save settings.');
-      });
-  });
-});
-
 /** 
  * Handle form submission for saving settings.
  */
@@ -409,7 +336,7 @@ const settingsForm = document.getElementById("settings-form");
 
 settingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  if (!selectedChipId) {
+  if (!window.selectedChipId) {
     alert("Please select a device first.");
     return;
   }
@@ -451,7 +378,7 @@ settingsForm.addEventListener("submit", (event) => {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ chipId: selectedChipId, userSettings }),
+    body: JSON.stringify({ chipId: window.selectedChipId, userSettings }),
   })
     .then((response) => {
       if (!response.ok) throw new Error("Failed to save settings");
@@ -461,37 +388,4 @@ settingsForm.addEventListener("submit", (event) => {
       console.error("Error saving settings:", error);
       alert("Failed to save settings.");
     });
-});
-
-// Handle device selection change
-document.getElementById("device-list").addEventListener("change", (e) => {
-  selectedChipId = e.target.value;
-  localStorage.setItem("selectedChipId", selectedChipId);
-  loadSettings();
-  updateDashboard();
-});
-
-// Handle Add Device button
-document.getElementById("add-device-btn").addEventListener("click", () => {
-  document.getElementById("add-device-modal").style.display = "flex";
-});
-
-// Handle modal close
-document.getElementById("close-modal").onclick = () => {
-  document.getElementById("add-device-modal").style.display = "none";
-};
-
-// Handle device registration form
-document.getElementById("add-device-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const chipId = document.getElementById("chip-id-input").value.trim().toUpperCase();
-  const alias = document.getElementById("alias-input").value.trim();
-  if (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(chipId)) {
-    alert("Invalid Chip ID format. Use XX:XX:XX:XX:XX:XX");
-    return;
-  }
-  await registerDevice(chipId, alias);
-  document.getElementById("add-device-modal").style.display = "none";
-  loadSettings();
-  updateDashboard();
 });

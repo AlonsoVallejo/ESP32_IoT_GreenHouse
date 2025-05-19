@@ -16,6 +16,9 @@ This backend receives data from ESP32 devices and stores it in Firebase Realtime
 - **Connectivity Monitoring**: Periodically checks for internet connectivity and dynamically reinitializes Firebase when WiFi or internet is recovered.
 - **CST Timestamp Integration**: Automatically generates timestamps in the `America/Mexico_City` timezone for accurate data logging.
 - **Public Backend Exposure**: Allows the backend to be exposed to the internet using ngrok for testing and temporary public access.
+- **Device Registration & Alias**: Devices can be registered with an alias and managed from the frontend.
+- **Device Removal**: Devices can be removed from the registered list via the frontend.
+- **History Limiting**: Only the last 60 sensor/actuator data entries per device are kept in the database; older entries are deleted automatically.
 
 ---
 
@@ -32,10 +35,15 @@ devices/
         sensorData: { ... }
         actuatorData: { ... }
         timestamp: ...
+RegisteredDevices/
+  XX:XX:XX:XX:XX:XX/
+    alias: "My Greenhouse"
+    registeredAt: "2024-06-01T12:34:56Z"
 ```
 
 - **settings**: Only one JSON object per device, overwritten on update.
-- **SensActHistory**: Contains timestamped sensor and actuator data entries.
+- **SensActHistory**: Contains up to 60 timestamped sensor and actuator data entries.
+- **RegisteredDevices**: List of registered devices with alias and registration date.
 
 ---
 
@@ -83,7 +91,7 @@ devices/
 ---
 
 ### `/updateSensActHistory` (POST)
-- **Description**: Store a new sensor/actuator data entry for a device.
+- **Description**: Store a new sensor/actuator data entry for a device. **Keeps only the last 60 entries per device.**
 - **Payload Example**:
   ```json
   {
@@ -104,7 +112,7 @@ devices/
     }
   }
   ```
-- **Result**: Appended under `/devices/XX:XX:XX:XX:XX:XX/SensActHistory/`.
+- **Result**: Appended under `/devices/XX:XX:XX:XX:XX:XX/SensActHistory/`. Oldest entries are deleted if more than 60 exist.
 
 ---
 
@@ -164,173 +172,78 @@ devices/
 
 ---
 
+### `/registerDevice` (POST)
+- **Description**: Register a new device with an alias.
+- **Payload Example**:
+  ```json
+  {
+    "chipId": "XX:XX:XX:XX:XX:XX",
+    "alias": "My Greenhouse",
+    "registeredAt": "2024-06-01T12:34:56Z"
+  }
+  ```
+- **Result**: Device is added to `/RegisteredDevices`.
+
+---
+
+### `/getRegisteredDevices` (GET)
+- **Description**: Get all registered devices with their aliases and registration dates.
+
+---
+
+### `/removeDevice` (POST)
+- **Description**: Remove a registered device from `/RegisteredDevices`.
+- **Payload Example**:
+  ```json
+  {
+    "chipId": "XX:XX:XX:XX:XX:XX"
+  }
+  ```
+
+---
+
 ## Making the Local Backend Public with ngrok
 
-To expose the local backend server to the internet:
+When using a local backend with a hosted frontend, use ngrok to expose your backend:
 
 1. **Install ngrok**:
-   Ensure ngrok is installed globally:
    ```bash
    npm install -g ngrok
    ```
 
 2. **Start the local backend server**:
-   Run the backend locally:
    ```bash
    node server.js
    ```
 
 3. **Start an ngrok tunnel**:
-   Create a public HTTPS URL pointing to your local backend:
    ```bash
    ngrok http 3000
    ```
 
-   Replace `3000` with the port number your backend server is listening on. ngrok will generate a public URL like `https://<random-string>.ngrok-free.app`.
-
-4. **Handle ngrok Browser Warning**:
-   To bypass ngrok's browser warning page, update your frontend API requests to include the `ngrok-skip-browser-warning` header:
-   ```javascript
-   headers: {
-     "ngrok-skip-browser-warning": "true"
-   }
-   ```
-
-5. **Enable Cross-Origin Resource Sharing (CORS)**:
-   Configure your backend to allow requests from external origins. Using `cors`:
-   ```javascript
-   const cors = require("cors");
-   app.use(cors({
-     origin: "*", // Replace "*" with specific URLs if required for production
-     methods: ["GET", "POST"]
-   }));
-   ```
-
-6. **Update Frontend API URL**:
+4. **Update Frontend API URL**:
    Replace the local API URL in your frontend code with the generated ngrok URL:
    ```javascript
    const apiUrl = "https://<your-ngrok-url>/";
    ```
 
-7. **Test Integration**:
-   - Open the public ngrok URL directly in your browser to verify it works.
-   - Test the hosted frontend using the updated ngrok URL.
+5. **Bypass ngrok Browser Warning**:
+   Add the `ngrok-skip-browser-warning` header in your frontend fetch requests.
 
 ---
 
 ## Usage
 
-1. Start the server using `PM2` for process management (recommended):
-   ```bash
-   pm2 start server.js
-   ```
-
-2. Access the default root endpoint:
-   ```
-   GET http://<host>:<port>/
-   ```
-
-   - It will respond with a message: `Firebase Server is Running!`
-
-3. Send ESP32 data to the endpoint:
-   ```
-   POST http://<host>:<port>/updateSensActHistory
-   ```
-   - Send JSON payload with sensor or actuator data, including irrigation status.
-
-4. Check for settings existence:
-   ```
-   GET http://<host>:<port>/getSettings?chipId=XX:XX:XX:XX:XX:XX
-   ```
-
-5. Save or update settings:
-   ```
-   POST http://<host>:<port>/updateSettings
-   ```
-
-6. Retrieve the most recent data:
-   ```
-   GET http://<host>:<port>/getLastData?chipId=XX:XX:XX:XX:XX:XX&type=sensors
-   ```
-
-7. Retrieve history data:
-   ```
-   GET http://<host>:<port>/getHistoryData?chipId=XX:XX:XX:XX:XX:XX&type=sensors&key=lvl
-   ```
-
-8. Check connectivity status:
-   ```
-   GET http://<host>:<port>/checkConnectivity
-   ```
-
----
-
-## Connectivity Monitoring
-
-The server periodically checks internet connectivity every 10 seconds:
-- If **connected**, it initializes Firebase if not already active.
-- If **disconnected**, it deinitializes Firebase to prevent resource leaks.
-
----
-
-## Project Structure
-
-- `server.js`: Main server file containing logic for Firebase integration, irrigation control, and connectivity monitoring.
-- `esp32_project_serviceAccountKey.json`: Firebase credentials file (you need to add this manually).
-- `package.json`: Manages dependencies.
-
----
-
-## Requirements
-
-- **Node.js**: Version >=14
-- **PM2**: For process management (optional)
-- Firebase Admin SDK configured with your project's credentials.
-
----
-
-## Dependencies
-
-- [Express](https://www.npmjs.com/package/express): For server creation.
-- [Firebase Admin SDK](https://www.npmjs.com/package/firebase-admin): To interface with Firebase services.
-- [Moment-Timezone](https://www.npmjs.com/package/moment-timezone): For handling timezone-specific timestamps.
-- [Node-Fetch](https://www.npmjs.com/package/node-fetch): For internet connectivity monitoring.
-- [PM2](https://www.npmjs.com/package/pm2): For managing the server in production environments.
-
----
-
-## Example Firebase Structure
-
-```
-devices/
-  AA:BB:CC:DD:EE:FF/
-    settings: {
-      "maxLevel": 90,
-      "minLevel": 20,
-      "hotTemperature": 30,
-      "lowHumidity": 15
-    }
-    SensActHistory/
-      -Nabc123xyz/
-        sensorData: { ... }
-        actuatorData: { ... }
-        timestamp: ...
-      -Nabc456uvw/
-        sensorData: { ... }
-        actuatorData: { ... }
-        timestamp: ...
-```
+- Start the server using `node server.js` or `pm2 start server.js`.
+- Use the endpoints as described above for device data, settings, registration, and removal.
 
 ---
 
 ## Notes
 
-- All endpoints now require the device chip ID (MAC address) as the key or query parameter.
-- The backend and frontend must use the same chip ID format (`XX:XX:XX:XX:XX:XX`).
-- Settings are unique per device and not stored globally.
-- Firebase functions are not supported. Functions require a paid plan option.
-- Ensure Firebase credentials (`esp32_project_serviceAccountKey.json`) are valid.
-- Monitor server logs via PM2 to confirm connectivity changes and Firebase reinitialization.
-- Make sure your ESP32 devices send valid JSON payloads to the server, including the `irr` field for irrigation status.
+- Only the last 60 sensor/actuator entries per device are kept in the database.
+- Devices must be registered before data can be managed in the frontend.
+- Device removal only affects the registration list, not the device's data in `/devices/{chipId}`.
+- Ensure your ESP32 devices send valid JSON payloads to the server.
 
 ---

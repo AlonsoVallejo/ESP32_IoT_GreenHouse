@@ -214,7 +214,7 @@ body {
   }
 
   .device-selector {
-    margin: 0; /* Remove vertical margin */
+    margin: 0; /* Remove any extra margin */
     background: #2a2a3b;
     padding: 8px 10px;
     border-radius: 8px;
@@ -228,9 +228,7 @@ body {
   }
 
   .device-selector h3 {
-    margin: 0 8px 0 0;
-    font-size: 15px;
-    color: #90ee90;
+    margin: 0 8px 0 0; 
   }
 
   .device-selector select {
@@ -251,8 +249,17 @@ body {
     font-weight: bold;
     font-size: 14px;
     cursor: pointer;
-    min-width: 100px; /* Ensures enough width for the text */
+    min-width: 125px; 
     white-space: nowrap; /* Prevents text wrapping */
+  }
+
+  #remove-device-btn {
+    background: #ff8888;
+    color: #222;
+    margin-left: 4px;
+  }
+  #remove-device-btn:hover {
+    background: #ff5555;
   }
 
   .modal {
@@ -282,15 +289,15 @@ body {
   .header-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px; /* Reduced from 24px */
+    gap: 12px; /* Reduce this value to decrease the space between elements */
+    padding: 10px 0 20px 0; /* Optional: adjust top/bottom padding as needed */
     margin-bottom: 18px;
     flex-wrap: wrap;
   }
 
   .header-bar h1 {
-    margin: 0; /* Remove default margin */
-    font-size: 25px;
+    margin: 0 10px 0 380px; /* 20px left margin, 380px right margin */
+    font-size: 2rem;
     color: #90ee90;
     white-space: nowrap;
   }

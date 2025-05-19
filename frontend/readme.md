@@ -11,15 +11,21 @@ This project is the frontend for the ESP32 IoT Greenhouse Monitoring System. It 
 The purpose of this project is to:
 1. Provide a visual interface for monitoring sensor data (e.g., temperature, humidity, water level).
 2. Display actuator statuses (e.g., lamp, pump, irrigation system).
-3. Host the frontend on a public hosting platform (e.g., Firebase Hosting) for easy access and demonstration.
+3. Allow users to register, select, and remove devices by Chip ID and alias.
+4. Host the frontend on a public hosting platform (e.g., Firebase Hosting) for easy access and demonstration.
 
 ---
 
 ## Features
 
+- **Device Registration & Selection**:
+  - Users can register new devices by Chip ID and assign an alias.
+  - Devices can be selected from a dropdown to view their data.
+  - Devices can be removed from the registered list.
+
 - **Real-Time Data Display**:
   - Fetches data from the backend server and displays it in grouped cards (e.g., Light, PIR, Lamp; Water, Fault, Pump; Temperature, Humidity).
-  - Supports history tracking for the last 60 entries.
+  - Supports history tracking for the last 60 entries (only the last 60 are kept in the database).
 
 - **Dynamic Updates**:
   - Automatically updates the dashboard every 5 seconds with the latest data.
@@ -27,14 +33,12 @@ The purpose of this project is to:
 - **Responsive Design**:
   - Optimized for desktop and mobile devices.
 
-- **Default Settings Management**:
-  - Automatically displays default settings if no user-defined settings exist in the backend.
+- **Settings Management**:
+  - Fetches and displays device settings.
+  - Allows users to update settings for the selected device.
 
-- **Settings Update Integration**:
-  - Reflects updated settings fetched from the backend every 15 seconds.
-
-- **Future Hosting**:
-  - The frontend is designed to be hosted on a public platform like Firebase Hosting for easy access.
+- **Friendly Error Handling**:
+  - If a device has no data, the dashboard and settings display a clear message to the user.
 
 ---
 
@@ -43,11 +47,14 @@ The purpose of this project is to:
 The frontend communicates with a backend server that:
 - Receives data from the ESP32 via HTTP POST requests.
 - Stores data in a Firebase Realtime Database.
-- Provides endpoints for fetching the latest data, historical data, and settings:
+- Provides endpoints for fetching the latest data, historical data, settings, and device registration/removal:
   - `/getLastData`: Fetches the most recent data for sensors or actuators.
   - `/getHistoryData`: Fetches the last 60 entries for sensors or actuators.
   - `/getSettings`: Fetches the current settings from the backend.
-  - `/saveDefaultSettings`: Saves default settings to the backend if no settings exist.
+  - `/saveSettings`: Saves user settings to the backend.
+  - `/registerDevice`: Registers a new device with alias.
+  - `/getRegisteredDevices`: Gets all registered devices.
+  - `/removeDevice`: Removes a registered device.
 
 ### Backend Requirements
 - The backend must be publicly accessible for the frontend to fetch data.
@@ -117,7 +124,7 @@ This ensures compatibility with the hosted frontend.
    cd ESP32_Project/frontend
    ```
 
-2. Install dependencies:
+2. Install dependencies (if any):
    ```bash
    npm install
    ```
@@ -160,9 +167,11 @@ This ensures compatibility with the hosted frontend.
 
 ## Features Recap
 
+- **Device Registration & Selection**: Register, select, and remove devices by Chip ID and alias.
 - **Real-Time Dashboard**: Provides up-to-date sensor and actuator information.
-- **Default Settings Management**: Automatically displays default settings if no user-defined settings exist.
-- **Settings Update Integration**: Reflects updated settings fetched from the backend every 15 seconds.
+- **Settings Management**: Fetch and update device settings.
+- **Friendly Error Handling**: Clear messages when a device has no data.
+- **History Limiting**: Only the last 60 entries per device are kept in the database.
 - **Cross-Origin Compatibility**: Designed to work seamlessly with Firebase Hosting and ngrok.
 - **Responsive Design**: Optimized for both desktop and mobile devices.
 
