@@ -202,14 +202,14 @@ void TaskSendDataToServer(void* pvParameters) {
                 wifiConnectedMessagePrinted = true; 
 
                 /* Check if settings exist in the database */
-                if (!checkSettingsExistence(data, serverUrl)) {
+                if (!checkJsonSettingsExistence(data)) {
                     /* Send default settings if they do not exist */
                     LogSerialn("Sending default settings to the backend...", IsLog);
-                    sendDefaultSettings(data, serverUrl);
+                    sendSystemSettings(data);
                 }
 
                 /* Fetch updated settings on initial connection */
-                fetchUpdatedSettings(data, serverUrl);
+                fetchUpdatedSettings(data);
             }
 
             /* Check if system settins have been manually modified */
@@ -220,14 +220,14 @@ void TaskSendDataToServer(void* pvParameters) {
                 LogSerial(" minlvl: " + String(data->minLevelPercentage), IsLog);
                 LogSerial(" hotTmp: " + String(data->hotTemperature), IsLog);
                 LogSerialn(" lowHum: " + String(data->lowHumidity), IsLog);
-                sendManualSettings(data, serverUrl); 
+                sendSystemSettings(data);
             }
 
             /* Periodically fetch updated settings */
             if ( (currentMillis - lastSettingsFetchTime >= SUBTASK_INTERVAL_15_S) && (data->currentDisplayDataSelec != SCREEN_LVL_SETT_MENU) ) {
                 lastSettingsFetchTime = currentMillis;
                 LogSerialn("Fetching system settings from server...", IsLog);
-                fetchUpdatedSettings(data, serverUrl);
+                fetchUpdatedSettings(data);
             } else if( data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU ) {
                 lastSettingsFetchTime = currentMillis;
             } else {
@@ -240,22 +240,8 @@ void TaskSendDataToServer(void* pvParameters) {
             if (currentMillis - lastSendTime >= SUBTASK_INTERVAL_15_S) {
                 lastSendTime = currentMillis;
 
-                LogSerialn("Sending Sensor data to server...", IsLog);
-                data->SrvClient->prepareData("type", "sensors");
-                data->SrvClient->prepareData("lvl", String(data->levelPercentage));
-                data->SrvClient->prepareData("tmp", String(data->sensorMgr->getTemperature()));
-                data->SrvClient->prepareData("hum", String(data->sensorMgr->getHumidity()));
-                data->SrvClient->prepareData("ldr", String(data->sensorMgr->getLightSensorValue()));
-                data->SrvClient->prepareData("pir", String(data->PirPresenceDetected));
-                data->SrvClient->sendPayload();
-
-                LogSerialn("Sending Actuators data to server...", IsLog);
-                data->SrvClient->prepareData("type", "actuators");
-                data->SrvClient->prepareData("lmp", String(data->actuatorMgr->getLamp()->getOutstate()));
-                data->SrvClient->prepareData("pmp", String(data->actuatorMgr->getPump()->getOutstate()));
-                data->SrvClient->prepareData("flt", String(data->actuatorMgr->getLedIndicator()->getOutstate()));
-                data->SrvClient->prepareData("irr", String(data->actuatorMgr->getIrrigator()->getOutstate()));
-                data->SrvClient->sendPayload();
+                LogSerialn("Sending Sensor/Actuator data to server...", IsLog);
+                sendSensActHistory(data);
             }
         } else {
             customTaskDelay = SUBTASK_INTERVAL_100_MS;

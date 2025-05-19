@@ -95,65 +95,35 @@ app.get("/", (req, res) => {
 });
 
 /** 
- * Endpoint to receive and store data from ESP32 devices
+ * Endpoint to receive and store sensor/actuator history data from ESP32 devices.
+ * Request from ESP32 devices.
+ * API endpoint: /updateSensActHistory
+ * Payload format: { "chipId": { "sensorData": {...}, "actuatorData": {...} } }
+ * 
  */
-app.post("/updateData", async (req, res) => {
-  console.log("Raw request body:", req.body); // Log the raw request body
+app.post("/updateSensActHistory", async (req, res) => {
+  const body = req.body;
+  const chipId = Object.keys(body)[0];
+  const data = body[chipId];
 
-  const sensorData = req.body;
-
-  /** Validate received data */
-  if (!sensorData || Object.keys(sensorData).length === 0) {
-    return res.status(400).send({ error: "No data received or invalid JSON payload" });
+  if (!data) {
+    return res.status(400).send({ error: "Invalid payload" });
   }
 
-  /** Generate a timestamp in the 'America/Mexico_City' timezone */
-  const timestampCST = moment().tz("America/Mexico_City").format();
-
-  /** Prepare data to be stored in Firebase */
-  const preparedData = {
-    type: sensorData.type || "unknown",
-    lvl: sensorData.lvl !== undefined ? sensorData.lvl : null,
-    tmp: sensorData.tmp !== undefined ? sensorData.tmp : null,
-    hum: sensorData.hum !== undefined ? sensorData.hum : null,
-    ldr: sensorData.ldr !== undefined ? sensorData.ldr : null,
-    pir: sensorData.pir !== undefined ? sensorData.pir : null,
-    lmp: sensorData.lmp !== undefined ? sensorData.lmp : null,
-    pmp: sensorData.pmp !== undefined ? sensorData.pmp : null,
-    flt: sensorData.flt !== undefined ? sensorData.flt : null,
-    irr: sensorData.irr !== undefined ? sensorData.irr : null,
-    timestamp: timestampCST
-  };
-
-  /** Remove null values from the prepared data */
-  Object.keys(preparedData).forEach((key) => {
-    if (preparedData[key] === null) {
-      delete preparedData[key];
-    }
-  });
-
-  const dbRef = sensorData.type === "actuators" ? "actuatorData" : "sensorData"; /** Choose the correct database path */
+  data.timestamp = moment().tz("America/Mexico_City").format();
 
   if (db) {
     try {
-      /** Push new data to Firebase */
-      const newEntryRef = await db.ref(dbRef).push(preparedData);
-
-      /** Clean up older entries if there are more than 60 */
-      const snapshot = await db.ref(dbRef).orderByKey().once("value");
-      const entries = snapshot.val();
-
-      if (entries && Object.keys(entries).length > 60) {
-        const keysToDelete = Object.keys(entries).slice(0, Object.keys(entries).length - 60); /** Oldest keys */
-        keysToDelete.forEach(async (key) => {
-          await db.ref(`${dbRef}/${key}`).remove();
-        });
-      }
-
-      res.send({ message: "Data stored successfully!" });
+      /** Store under /devices/{chipId}/SensActHistory/ */
+      await db.ref(`devices/${chipId}/SensActHistory`).push({
+        sensorData: data.sensorData,
+        actuatorData: data.actuatorData,
+        timestamp: data.timestamp
+      });
+      res.send({ message: "Sensor/Actuator history stored successfully!" });
     } catch (error) {
-      console.error("Error saving data:", error);
-      res.status(500).send({ error: "Error saving data to Firebase" });
+      console.error("Error saving history:", error);
+      res.status(500).send({ error: "Error saving history to Firebase" });
     }
   } else {
     res.status(500).send({ error: "Firebase is not initialized." });
@@ -161,7 +131,39 @@ app.post("/updateData", async (req, res) => {
 });
 
 /** 
- * Endpoint to fetch the latest data for sensors or actuators
+ * Endpoint to receive and store settings data from ESP32 devices.
+ * Request from ESP32 devices.
+ * API endpoint: /updateSettings
+ * Payload format: { "chipId": { "settings": {...} } }
+ */
+app.post("/updateSettings", async (req, res) => {
+  const body = req.body;
+  const chipId = Object.keys(body)[0];
+  const data = body[chipId];
+
+  if (!data || !data.settings) {
+    return res.status(400).send({ error: "Invalid payload" });
+  }
+
+  if (db) {
+    try {
+      /** Store under /devices/{chipId}/settings */
+      await db.ref(`devices/${chipId}/settings`).set(data.settings);
+      res.send({ message: "Settings stored successfully!" });
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      res.status(500).send({ error: "Error saving settings to Firebase" });
+    }
+  } else {
+    res.status(500).send({ error: "Firebase is not initialized." });
+  }
+});
+
+/** 
+ * Endpoint to fetch the last data entry for sensors or actuators
+ * Request from frontend.
+ * API endpoint: /getLastData
+ * Query parameters: type (sensors or actuators)
  */
 app.get("/getLastData", async (req, res) => {
   console.log("Received request:", req.query); /** Log incoming request details */
@@ -197,6 +199,9 @@ app.get("/getLastData", async (req, res) => {
 
 /** 
  * Endpoint to fetch historical data (last 60 entries) for sensors or actuators
+ * Request from frontend.
+ * API endpoint: /getHistoryData
+ * Query parameters: type (sensors or actuators), key (specific key to filter data)
  */
 app.get("/getHistoryData", async (req, res) => {
   const { type, key } = req.query;
@@ -236,7 +241,10 @@ app.get("/getHistoryData", async (req, res) => {
 });
 
 /** 
- * Endpoint to save settings
+ * Endpoint to save settings data from the frontend to Firebase
+ * Request from frontend.
+ * API endpoint: /saveSettings
+ * Payload format: { "userSettings": {...} }
  */
 app.post("/saveSettings", async (req, res) => {
   const { userSettings } = req.body;
@@ -265,86 +273,27 @@ app.post("/saveSettings", async (req, res) => {
 });
 
 /** 
- * Endpoint to save settings only if they do not already exist
- */
-app.post("/saveDefaultSettings", async (req, res) => {
-  const { defaultSettings } = req.body;
-
-  /** Validate input */
-  if (!defaultSettings) {
-    return res.status(400).send({ error: "Invalid input data" });
-  }
-
-  console.log("Received default settings:", defaultSettings);
-
-  if (db) {
-    try {
-      /** Check if the 'settings' JSON package already exists */
-      const snapshot = await db.ref("settings").once("value");
-      const existingSettings = snapshot.val();
-
-      if (existingSettings) {
-        console.log("Settings already exist in the database. Skipping default settings save.");
-        res.send({ message: "Settings already exist. Default settings were not saved." });
-      } else {
-        /** Save default settings to Firebase under the 'settings' path */
-        await db.ref("settings").set(defaultSettings);
-        console.log("Default settings saved to Firebase:", defaultSettings);
-        res.send({ message: "Default settings saved successfully!" });
-      }
-    } catch (error) {
-      console.error("Error saving default settings to Firebase:", error);
-      res.status(500).send({ error: "Error saving default settings to Firebase." });
-    }
-  } else {
-    res.status(500).send({ error: "Firebase is not initialized." });
-  }
-});
-
-/**
- * Endpoint to save manual settings
- * This endpoint is currently not implemented.
- */
-app.post("/saveManualSettings", async (req, res) => {
-  const { manualSettings } = req.body; // Expect the "settings" key in the request body
-
-  /** Validate input */
-  if (!manualSettings) {
-    return res.status(400).send({ error: "Invalid input data" });
-  }
-
-  console.log("Received manual settings:", manualSettings);
-
-  if (db) {
-    try {
-      /** Override the current settings in Firebase under the 'settings' path */
-      await db.ref("settings").set(manualSettings);
-
-      console.log("Manual settings saved to Firebase:", manualSettings);
-      res.send({ message: "Manual settings saved successfully!" });
-    } catch (error) {
-      console.error("Error saving manual settings to Firebase:", error);
-      res.status(500).send({ error: "Error saving manual settings to Firebase." });
-    }
-  } else {
-    res.status(500).send({ error: "Firebase is not initialized." });
-  }
-});
-
-/** 
- * Endpoint to fetch current settings from Firebase
+ * Endpoint to fetch current settings for a specific device from Firebase.
+ * Request from frontend and ESP32 device.
+ * API endpoint: /getSettings
+ * Query parameters: chipId (unique identifier for the device)
  */
 app.get("/getSettings", async (req, res) => {
+  const chipId = req.query.chipId;
+  if (!chipId) {
+    return res.status(400).send({ error: "Missing 'chipId' query parameter." });
+  }
+
   if (db) {
     try {
-      /** Fetch settings from Firebase */
-      const snapshot = await db.ref("settings").once("value");
+      /** Fetch settings from Firebase for this device */
+      const snapshot = await db.ref(`devices/${chipId}/settings`).once("value");
       const settings = snapshot.val();
 
       if (settings) {
         res.send(settings); /** Send the settings to the frontend */
       } else {
-        res.status(404).send({ error: "No settings found in the database." });
+        res.status(404).send({ error: "No settings found in the database for this device." });
       }
     } catch (error) {
       console.error("Error fetching settings from Firebase:", error);

@@ -2,42 +2,29 @@
 #include <HTTPClient.h>
 #include "LogMgr.h"
 #include "ProcessMgr.h"
-
-/**
- * @brief Extracts a value from a JSON string by key.
- * @param json The JSON string.
- * @param key The key to search for.
- * @return The value as a string, or an empty string if the key is not found.
- */
-String extractJsonValue(const String& json, const String& key) {
-    String searchKey = "\"" + key + "\":";
-    int startIndex = json.indexOf(searchKey);
-    if (startIndex == -1) {
-        return ""; // Key not found
-    }
-
-    startIndex += searchKey.length();
-    int endIndex = json.indexOf(",", startIndex);
-    if (endIndex == -1) {
-        endIndex = json.indexOf("}", startIndex); // Handle the last key-value pair
-    }
-
-    String value = json.substring(startIndex, endIndex);
-    value.trim(); // Remove any extra spaces or newlines
-    value.replace("\"", ""); // Remove quotes if the value is a string
-    return value;
-}
+#include <ArduinoJson.h>
+#include <WiFi.h> // For ESP.getChipModel()
 
 /**
  * @brief Fetch updated settings from the server and update the SystemData structure.
  * @param data Pointer to the SystemData structure to update.
- * @param serverUrl URL of the backend server.
  */
-void fetchUpdatedSettings(SystemData* data, const char* serverUrl) {
-    HTTPClient http;
-    String fullUrl = String(serverUrl) + "getSettings"; /* Append the endpoint to the base URL */
+void fetchUpdatedSettings(SystemData* data) {
+    uint64_t chipId = ESP.getEfuseMac();
+    char chipIdStr[18];
+    snprintf(chipIdStr, sizeof(chipIdStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+        (uint8_t)(chipId >> 40),
+        (uint8_t)(chipId >> 32),
+        (uint8_t)(chipId >> 24),
+        (uint8_t)(chipId >> 16),
+        (uint8_t)(chipId >> 8),
+        (uint8_t)chipId);
 
-    http.begin(fullUrl); /* Use the full URL */
+    const char* serverUrl = data->SrvClient->getServerUrl();
+    String fullUrl = String(serverUrl) + "getSettings?chipId=" + chipIdStr;
+
+    HTTPClient http;
+    http.begin(fullUrl);
     http.setTimeout(5000);
 
     int httpResponseCode = http.GET();
@@ -46,23 +33,25 @@ void fetchUpdatedSettings(SystemData* data, const char* serverUrl) {
         LogSerial("Fetched updated settings: ", false);
         LogSerialn(response, false);
 
-        /* Extract and update dynamic settings in SystemData */
-        String maxLevelStr = extractJsonValue(response, "maxLevel");
-        String minLevelStr = extractJsonValue(response, "minLevel");
-        String hotTempStr = extractJsonValue(response, "hotTemperature");
-        String lowHumidityStr = extractJsonValue(response, "lowHumidity");
-
-        if (!maxLevelStr.isEmpty()) {
-            data->maxLevelPercentage = maxLevelStr.toInt();
-        }
-        if (!minLevelStr.isEmpty()) {
-            data->minLevelPercentage = minLevelStr.toInt();
-        }
-        if (!hotTempStr.isEmpty()) {
-            data->hotTemperature = hotTempStr.toInt();
-        }
-        if (!lowHumidityStr.isEmpty()) {
-            data->lowHumidity = lowHumidityStr.toInt();
+        /* Parse JSON response */
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, response);
+        if (!error) {
+            if (doc["maxLevel"].is<int>()) {
+                data->maxLevelPercentage = doc["maxLevel"];
+            }
+            if (doc["minLevel"].is<int>()) {
+                data->minLevelPercentage = doc["minLevel"];
+            }
+            if (doc["hotTemperature"].is<int>()) {
+                data->hotTemperature = doc["hotTemperature"];
+            }
+            if (doc["lowHumidity"].is<int>()) {
+                data->lowHumidity = doc["lowHumidity"];
+            }
+        } else {
+            LogSerial("Failed to parse settings JSON: ", true);
+            LogSerialn(error.c_str(), true);
         }
     } else {
         LogSerial("Failed to fetch updated settings: ", true);
@@ -73,16 +62,26 @@ void fetchUpdatedSettings(SystemData* data, const char* serverUrl) {
 }
 
 /**
- * @brief Checks if the 'settings' JSON package exists in the database.
+ * @brief Checks if the 'settings' JSON package exists in the database for this device.
  * @param data Pointer to the SystemData structure.
- * @param serverUrl URL of the backend server.
- * @return True if the settings exist, false otherwise.
+ * @return True if the json settings packet exists, false otherwise.
  */
-bool checkSettingsExistence(SystemData* data, const char* serverUrl) {
-    HTTPClient http;
-    String fullUrl = String(serverUrl) + "getSettings"; /* Append the endpoint to the base URL */
+bool checkJsonSettingsExistence(SystemData* data) {
+    uint64_t chipId = ESP.getEfuseMac();
+    char chipIdStr[18];
+    snprintf(chipIdStr, sizeof(chipIdStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+        (uint8_t)(chipId >> 40),
+        (uint8_t)(chipId >> 32),
+        (uint8_t)(chipId >> 24),
+        (uint8_t)(chipId >> 16),
+        (uint8_t)(chipId >> 8),
+        (uint8_t)chipId);
 
-    http.begin(fullUrl); /* Use the full URL */
+    const char* serverUrl = data->SrvClient->getServerUrl();
+    String fullUrl = String(serverUrl) + "getSettings?chipId=" + chipIdStr;
+
+    HTTPClient http;
+    http.begin(fullUrl);
     http.setTimeout(5000);
 
     int httpResponseCode = http.GET();
@@ -91,51 +90,66 @@ bool checkSettingsExistence(SystemData* data, const char* serverUrl) {
         LogSerial("Settings existence check response: ", true);
         LogSerialn(response, true);
 
-        /* Check if the response contains an error or is empty */
-        if (response.indexOf("\"error\"") != -1 || response.isEmpty() || response == "null") {
-            return false; /* Settings do not exist */
+        /* Parse JSON response to check for error */
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, response);
+        if (!error) {
+            if (!doc["error"].isNull()) {
+                return false;
+            }
         }
-
-        return true; /* Settings exist */
+        /* If response is not empty and not "null", settings exist */
+        if (!response.isEmpty() && response != "null") {
+            return true;
+        }
     } else {
         LogSerial("Failed to check settings existence: ", true);
         LogSerialn(http.errorToString(httpResponseCode).c_str(), true);
     }
 
     http.end();
-    return false; /* Assume settings do not exist if the request fails */
+    return false;
 }
 
 /**
- * @brief Sends default settings to the server.
+ * @brief Packs and sends sensor and actuator data in a single JSON under the ESP chip id.
  * @param data Pointer to the SystemData structure.
- * @param serverUrl URL of the backend server.
  */
-void sendDefaultSettings(SystemData* data, const char* serverUrl) {
-    HTTPClient http;
-    String fullUrl = String(serverUrl) + "saveDefaultSettings"; /* Append the endpoint to the base URL */
+void sendSensActHistory(SystemData* data) {
+    uint64_t chipId = ESP.getEfuseMac();
+    char chipIdStr[18];
+    snprintf(chipIdStr, sizeof(chipIdStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+        (uint8_t)(chipId >> 40),
+        (uint8_t)(chipId >> 32),
+        (uint8_t)(chipId >> 24),
+        (uint8_t)(chipId >> 16),
+        (uint8_t)(chipId >> 8),
+        (uint8_t)chipId);
 
-    String payload = "{";
-    payload += "\"defaultSettings\": {";
-    payload += "\"maxLevel\": " + String(DFLT_MAX_LVL_PERCENTAGE) + ",";
-    payload += "\"minLevel\": " + String(DFLT_MIN_LVL_PERCENTAGE) + ",";
-    payload += "\"hotTemperature\": " + String(DFLT_SENSOR_HOT_TEMP_C) + ",";
-    payload += "\"lowHumidity\": " + String(DFLT_SENSOR_LOW_HUMIDITY);
-    payload += "}}";
+    JsonDocument doc; /* Use static allocation as you requested */
 
-    http.begin(fullUrl); /* Use the full URL */
-    http.addHeader("Content-Type", "application/json");
+    /* Create root object with chipId as key */
+    JsonObject root = doc[chipIdStr].to<JsonObject>();
 
-    int httpResponseCode = http.POST(payload);
-    if (httpResponseCode > 0) {
-        LogSerial("Default settings response: ", true);
-        LogSerialn(String(httpResponseCode), true);
-    } else {
-        LogSerial("Failed to send default settings: ", true);
-        LogSerialn(http.errorToString(httpResponseCode).c_str(), true);
-    }
+    /* Pack sensor data */
+    JsonObject sensorData = root["sensorData"].to<JsonObject>();
+    sensorData["lvl"] = data->levelPercentage;
+    sensorData["tmp"] = data->sensorMgr->getTemperature();
+    sensorData["hum"] = data->sensorMgr->getHumidity();
+    sensorData["ldr"] = data->sensorMgr->getLightSensorValue();
+    sensorData["pir"] = data->PirPresenceDetected;
 
-    http.end();
+    /* Pack actuator data */
+    JsonObject actuatorData = root["actuatorData"].to<JsonObject>();
+    actuatorData["lmp"] = data->actuatorMgr->getLamp()->getOutstate();
+    actuatorData["pmp"] = data->actuatorMgr->getPump()->getOutstate();
+    actuatorData["flt"] = data->actuatorMgr->getLedIndicator()->getOutstate();
+    actuatorData["irr"] = data->actuatorMgr->getIrrigator()->getOutstate();
+
+    String payload;
+    serializeJson(doc, payload);
+
+    data->SrvClient->sendSensActHistoryPayload(payload);
 }
 
 /**
@@ -143,29 +157,32 @@ void sendDefaultSettings(SystemData* data, const char* serverUrl) {
  * @param data Pointer to the SystemData structure.
  * @param serverUrl URL of the backend server.
  */
-void sendManualSettings(SystemData* data, const char* serverUrl) {
-    HTTPClient http;
-    String fullUrl = String(serverUrl) + "saveManualSettings"; /* Append the endpoint to the base URL */
+void sendSystemSettings(SystemData* data) {
+    uint64_t chipId = ESP.getEfuseMac();
+    char chipIdStr[18];
+    snprintf(chipIdStr, sizeof(chipIdStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+        (uint8_t)(chipId >> 40),
+        (uint8_t)(chipId >> 32),
+        (uint8_t)(chipId >> 24),
+        (uint8_t)(chipId >> 16),
+        (uint8_t)(chipId >> 8),
+        (uint8_t)chipId);
 
-    String payload = "{";
-    payload += "\"manualSettings\": {";
-    payload += "\"maxLevel\": " + String(data->maxLevelPercentage) + ",";
-    payload += "\"minLevel\": " + String(data->minLevelPercentage) + ",";
-    payload += "\"hotTemperature\": " + String(data->hotTemperature) + ",";
-    payload += "\"lowHumidity\": " + String(data->lowHumidity);
-    payload += "}}";
+    JsonDocument doc;
 
-    http.begin(fullUrl); /* Use the full URL */
-    http.addHeader("Content-Type", "application/json");
+    /** Create root object with chipId as key */
+    JsonObject root = doc[chipIdStr].to<JsonObject>();
 
-    int httpResponseCode = http.POST(payload);
-    if (httpResponseCode > 0) {
-        LogSerial("manual settings response: ", true);
-        LogSerialn(String(httpResponseCode), true);
-    } else {
-        LogSerial("Failed to send manual settings: ", true);
-        LogSerialn(http.errorToString(httpResponseCode).c_str(), true);
-    }
+    /** Pack settings */
+    JsonObject settings = root["settings"].to<JsonObject>();
+    settings["maxLevel"] = data->maxLevelPercentage;
+    settings["minLevel"] = data->minLevelPercentage;
+    settings["hotTemperature"] = data->hotTemperature;
+    settings["lowHumidity"] = data->lowHumidity;
 
-    http.end();
+    String payload;
+    serializeJson(doc, payload);
+
+    data->SrvClient->sendSysSettingsPayload(payload);
 }
+
