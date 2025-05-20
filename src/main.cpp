@@ -224,12 +224,14 @@ void TaskSendDataToServer(void* pvParameters) {
                 sendSystemSettings(data);
             }
 
-            /* Periodically fetch updated settings */
-            if ( (currentMillis - lastSettingsFetchTime >= SUBTASK_INTERVAL_15_S) && (data->currentDisplayDataSelec != SCREEN_LVL_SETT_MENU) ) {
-                lastSettingsFetchTime = currentMillis;
-                LogSerialn("Fetching system settings from server...", IsLog);
-                fetchUpdatedSettings(data);
-            } else if( data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU ) {
+            /* Periodically fetch updated settings if sys settings are not being changed manually using user buttons */
+            if ( (currentMillis - lastSettingsFetchTime >= SUBTASK_INTERVAL_15_S) && 
+                 (data->currentDisplayDataSelec != SCREEN_LVL_SETT_MENU) && 
+                 (data->currentDisplayDataSelec != SCREEN_TEMP_HUM_SETT_MENU) ) {
+                    lastSettingsFetchTime = currentMillis;
+                    LogSerialn("Fetching system settings from server...", IsLog);
+                    fetchUpdatedSettings(data);
+            } else if( (data->currentDisplayDataSelec == SCREEN_LVL_SETT_MENU) || (data->currentDisplayDataSelec == SCREEN_TEMP_HUM_SETT_MENU)) {
                 lastSettingsFetchTime = currentMillis;
             } else {
                 /*  do nothing */
