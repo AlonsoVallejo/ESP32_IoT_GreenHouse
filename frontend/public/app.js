@@ -1,11 +1,11 @@
-/** 
- * API URL pointing to the backend server exposed via ngrok.
- * Replace with the current ngrok URL or your local backend URL for testing.
- */
+/** API URL pointing to the backend server exposed via ngrok. */
 //const apiUrl = "https://c0b1-2806-261-484-b18-f388-fad9-1f72-76b2.ngrok-free.app/"; 
 
+/** Uncomment this line for production deployment with tunnel */
+const apiUrl = "https://k3lr72nn-3000.usw3.devtunnels.ms/"; 
+
 /** Uncomment this line for local testing with the backend */
-const apiUrl = "http://localhost:3000/";
+//const apiUrl = "http://localhost:3000/";
 
 /** 
  * History object to store up to the last 60 entries of sensor and actuator data

@@ -277,6 +277,8 @@ body {
     border-radius: 10px;
     min-width: 300px;
     position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
   }
 
   .close {
@@ -306,9 +308,70 @@ body {
   @media (max-width: 700px) {
     .header-bar {
       flex-direction: column;
-      gap: 10px;
+      align-items: stretch;
+      gap: 8px;
+      padding: 10px 0 10px 0;
+    }
+    .header-bar h1 {
+      margin: 0 0 0 0;
+      font-size: 1.3rem;
+      text-align: center;
+    }
+    .device-selector {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 6px;
     }
     .settings-icon {
-      margin-left: 0;
+      position: static;
+      margin: 0 auto;
+      margin-top: 8px;
     }
+    .settings-menu {
+      position: static;
+      width: 100%;
+      box-shadow: none;
+      margin-bottom: 12px;
+    }
+    .container {
+      flex-direction: column;
+      gap: 16px;
+      padding: 0 2vw;
+    }
+    .group {
+      min-width: 0;
+      width: 100%;
+      padding: 10px;
+    }
+    .card {
+      max-width: 100%;
+      height: 170px;
+      padding: 10px;
+    }
+    .modal-content {
+      min-width: 90vw;
+      padding: 18px 6px;
+    }
+  }
+
+  @media (max-width: 500px) {
+    .group, .card {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      padding: 6px;
+    }
+    .card {
+      height: 140px;
+      font-size: 0.95rem;
+    }
+  }
+
+  .device-selector button,
+  .settings-menu form button,
+  .device-selector select,
+  .settings-menu form input {
+    font-size: 1rem;
+    min-height: 38px;
   }
