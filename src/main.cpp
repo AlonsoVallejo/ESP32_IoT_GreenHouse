@@ -10,7 +10,7 @@ using namespace std;
 /* Current used GPIOs for sensors */
 #define SENSOR_LVL_PIN          (SHIELD_POTENTIOMETER_VP_D36)
 #define SENSOR_HUM_TEMP_PIN     (SHIELD_DAC1_D25)
-#define SENSOR_LDR_PIN          (SHIELD_DIMMER_ZC_D5) 
+#define SENSOR_LDR_PIN          (SHIELD_BUZZER_D15) 
 #define SENSOR_PIR_PIN          (SHIELD_DHT11_D13)
 #define SENSOR_PB_SELECT_PIN    (SHIELD_PUSHB1_D33)
 #define SENSOR_PB_ESC_PIN       (SHIELD_PUSHB3_D34)
