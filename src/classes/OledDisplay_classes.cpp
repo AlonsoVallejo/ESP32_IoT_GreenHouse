@@ -108,6 +108,18 @@ void OledDisplay::DrawLine(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t 
 }
 
 /**
+ * @brief Draws an icon on the display.
+ * @param x X-coordinate of the icon.
+ * @param y Y-coordinate of the icon.
+ * @param icon Pointer to the icon data.
+ * @param w Width of the icon.
+ * @param h Height of the icon.
+ */
+void OledDisplay::DrawIcon(int16_t x, int16_t y, const uint8_t* icon, uint8_t w, uint8_t h) {
+    display.drawBitmap(x, y, icon, w, h, SSD1306_WHITE); /* Draw an icon on the display */
+}
+
+/**
  * @brief Sends the buffered display data to the OLED screen.
  */
 void OledDisplay::PrintdisplayData() {

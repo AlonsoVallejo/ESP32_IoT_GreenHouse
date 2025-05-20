@@ -123,7 +123,8 @@ void TaskDisplay(void* pvParameters) {
         uint32_t currentMillis = millis();
 
         data->oledDisplay->clearAllDisplay();
-        
+        data->oledDisplay->setTextProperties(1, SSD1306_WHITE);
+
         switch (data->currentDisplayDataSelec) {
             case SCREEN_LGT_PIR_LAMP_DATA:
                 displayLightAndPresence(data);

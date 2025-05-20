@@ -25,6 +25,7 @@ public:
     void SetdisplayData(int16_t posX, int16_t posY, double data);
     uint16_t getStringWidth(const char* str);
     void DrawLine(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+    void DrawIcon(int16_t x, int16_t y, const uint8_t* icon, uint8_t w, uint8_t h);
     void PrintdisplayData();
 };
 

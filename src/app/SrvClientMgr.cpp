@@ -3,7 +3,7 @@
 #include "LogMgr.h"
 #include "ProcessMgr.h"
 #include <ArduinoJson.h>
-#include <WiFi.h> // For ESP.getChipModel()
+#include <WiFi.h> 
 
 /**
  * @brief Fetch updated settings from the server and update the SystemData structure.
