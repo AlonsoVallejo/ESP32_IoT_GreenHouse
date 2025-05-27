@@ -138,12 +138,12 @@ void sendSensActHistory(SystemData* data) {
     sensorData["hum"] = data->sensorMgr->getHumidity();
     sensorData["ldr"] = data->sensorMgr->getLightSensorValue() ? "1" : "0";
     sensorData["pir"] = data->PirPresenceDetected ? "1" : "0";
+    sensorData["well"] = data->sensorMgr->getWellSensorValue() ? "1" : "0";
 
     /* Pack actuator data */
     JsonObject actuatorData = root["actuatorData"].to<JsonObject>();
     actuatorData["lmp"] = data->actuatorMgr->getLamp()->getOutstate() ? "1" : "0";
     actuatorData["pmp"] = data->actuatorMgr->getPump()->getOutstate() ? "1" : "0";
-    actuatorData["flt"] = data->actuatorMgr->getLedIndicator()->getOutstate() ? "1" : "0";
     actuatorData["irr"] = data->actuatorMgr->getIrrigator()->getOutstate() ? "1" : "0";
 
     String payload;

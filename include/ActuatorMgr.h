@@ -8,16 +8,13 @@
  */
 class ActuatorManager {
 public:
-    ActuatorManager(Actuator* ledIndicator, Actuator* irrigator, Actuator* pump, Actuator* lamp);
+    ActuatorManager(Actuator* irrigator, Actuator* pump, Actuator* lamp);
 
     void applyState();
-    void resetLedIndicator();
-    void setLedIndicator(bool state);
     void setIrrigatorState(bool state);
     void setPumpState(bool state);
     void setLampState(bool state);
 
-    Actuator* getLedIndicator() const;
     Actuator* getIrrigator() const;
     Actuator* getPump() const;
     Actuator* getLamp() const;
@@ -25,7 +22,6 @@ public:
     
 
 private:
-    Actuator* ledIndicator; /**< Pointer to the LED indicator actuator. */
     Actuator* irrigator;    /**< Pointer to the irrigator actuator. */
     Actuator* pump;         /**< Pointer to the pump actuator. */
     Actuator* lamp;         /**< Pointer to the lamp actuator. */

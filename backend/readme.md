@@ -101,12 +101,12 @@ RegisteredDevices/
         "tmp": 25.5,
         "hum": 60,
         "ldr": 1,
-        "pir": 0
+        "pir": 0,
+        "well":1 
       },
       "actuatorData": {
         "lmp": 1,
         "pmp": 0,
-        "flt": 0,
         "irr": 1
       }
     }
@@ -149,6 +149,7 @@ RegisteredDevices/
     "hum": 60,
     "ldr": 1,
     "pir": 0,
+    "well":1,
     "timestamp": "2024-06-01T12:34:56-06:00"
   }
   ```
@@ -158,7 +159,6 @@ RegisteredDevices/
     "lmp": 1,
     "pmp": 0,
     "flt": 0,
-    "irr": 1,
     "timestamp": "2024-06-01T12:34:56-06:00"
   }
   ```

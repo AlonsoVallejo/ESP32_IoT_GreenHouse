@@ -4,6 +4,8 @@
 #include <Arduino.h>
 
 #define SENSOR_PIR_COOL_DOWN_TIME (5000) 
+#define SENSOR_WATER_WELL_FULL  (false) /* Assuming true means well is full */
+#define SENSOR_WATER_WELL_EMPTY (true) /* Assuming true means well is empty */
 
 /**
  * @brief Handles the activation and deactivation of the lamp based on PIR sensor and light sensor states.
@@ -59,22 +61,27 @@ void LampActivationCtrl(SystemData* data) {
  */
 void PumpActivationCtrl(SystemData* data) {
     static bool pumpState = false;
+    bool wellSensorState = data->sensorMgr->getWellSensorValue();
 
     if (xSemaphoreTake(xSystemDataMutex, portMAX_DELAY)) {
         uint16_t levelValue = data->sensorMgr->getLevelSensorValue();
-        uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V)) * 100) /
-                                    ((SENSOR_LVL_OPENCKT_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_STG_V + SENSOR_LVL_THRESHOLD_V));
+        uint16_t levelPercentage = ((levelValue - (SENSOR_LVL_ADC_0_V + SENSOR_LVL_THRESHOLD_V)) * 100) /
+                                    ((SENSOR_LVL_ADC_100_V - SENSOR_LVL_THRESHOLD_V) - (SENSOR_LVL_ADC_0_V + SENSOR_LVL_THRESHOLD_V));
 
-        if (levelValue >= SENSOR_LVL_OPENCKT_V || levelValue <= SENSOR_LVL_STG_V) {
-            /* If level sensor is in open or short circuit, indicate failure */
-            data->actuatorMgr->setLedIndicator(LED_FAIL_INDICATE);
-            pumpState = false;
+        if (levelValue >= SENSOR_LVL_ADC_100_V) {
+            levelPercentage = 100; 
+        } else if (levelValue <= SENSOR_LVL_ADC_0_V) {
+            levelPercentage = 0; 
         } else {
-            data->actuatorMgr->setLedIndicator(LED_NO_FAIL_INDICATE);
-            if (levelPercentage <= data->minLevelPercentage) {
+            if ( (levelPercentage <= data->minLevelPercentage) && (wellSensorState == SENSOR_WATER_WELL_FULL) ) {
+                /* If level is below minimum and well is Full, turn pump ON */
                 pumpState = true;
-            } else if (levelPercentage >= data->maxLevelPercentage) {
+            } else if ( (levelPercentage >= data->maxLevelPercentage) || (wellSensorState == SENSOR_WATER_WELL_EMPTY) ) {
+                /* If level is above maximum or well is Empty, turn pump OFF */
                 pumpState = false;
+            } else {
+                /* If level is between min and max, keep pump state unchanged */
+                pumpState = data->actuatorMgr->getPump()->getOutstate();
             }
         }
 

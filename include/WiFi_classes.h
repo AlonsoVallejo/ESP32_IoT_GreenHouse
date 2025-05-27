@@ -20,7 +20,6 @@ public:
     const char* getPassword();
     void setSSID(const char* ssid);
     void setPassword(const char* password);
-    void connectWiFi();
     void disconnectWiFi();
     bool IsWiFiConnected();
     IPAddress getWiFiLocalIp();

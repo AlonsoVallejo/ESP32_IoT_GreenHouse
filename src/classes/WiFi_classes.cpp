@@ -45,28 +45,6 @@ void WiFiManager::setPassword(const char* password) {
 }
 
 /**
- * @brief Establishes WiFi connection.
- */
-void WiFiManager::connectWiFi() {
-    WiFi.begin(ssid.c_str(), password.c_str());
-    LogSerial("Connecting to WiFi SSID: " + ssid, true);
-    unsigned long startAttemptTime = millis();
-    const unsigned long timeout = 10000; 
-
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {
-        delay(500);
-        LogSerial(".", true);
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        LogSerialn("\nWiFi connected!", true);
-    } else {
-        LogSerialn("\nWiFi connection failed.", true);
-        WiFi.disconnect(true); // Optionally reset WiFi state
-    }
-}
-
-/**
  * @brief Disconnects from the WiFi network.
  */
 void WiFiManager::disconnectWiFi() {
@@ -110,14 +88,14 @@ std::vector<String> WiFiManager::scanNetworks() {
  * @return True if connection is successful, false otherwise.
  */
 bool WiFiManager::connectToNetwork(const String& ssid, const String& password) {
-    LogSerial("Connecting to SSID: " + ssid, true);
+    LogSerialn("Connecting to SSID: " + ssid, true);
 
     WiFi.disconnect(true); // Disconnect from any previous network
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
 
     unsigned long startAttemptTime = millis();
-    const unsigned long timeout = 15000;
+    const unsigned long timeout = 5000;
 
     while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {
         delay(200);

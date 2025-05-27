@@ -2,10 +2,10 @@
 //const apiUrl = "https://c0b1-2806-261-484-b18-f388-fad9-1f72-76b2.ngrok-free.app/"; 
 
 /** Uncomment this line for production deployment with tunnel */
-const apiUrl = "https://k3lr72nn-3000.usw3.devtunnels.ms/"; 
+//const apiUrl = "https://k3lr72nn-3000.usw3.devtunnels.ms/"; 
 
 /** Uncomment this line for local testing with the backend */
-//const apiUrl = "http://localhost:3000/";
+const apiUrl = "http://localhost:3000/";
 
 /** 
  * History object to store up to the last 60 entries of sensor and actuator data
@@ -17,8 +17,8 @@ const historyData = {
   lvl: [], /** Water Level */
   tmp: [], /** Temperature */
   hum: [], /** Humidity */
+  well: [], /** Well Water Level */
   lmp: [], /** Lamp Status */
-  flt: [], /** Sensor Fault Status */
   pmp: [], /** Pump Status */
   irr: [] /** Irrigation Status */
 };
@@ -53,16 +53,32 @@ async function fetchData(type) {
  */
 function getIcon(title, value) {
   switch (title) {
-    case "Temperature": return '<i class="fas fa-thermometer-half"></i>';
-    case "Humidity": return '<i class="fas fa-tint"></i>';
-    case "Water Level": return '<i class="fas fa-water"></i>';
-    case "Ambient Light": return value === "Dark" ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
-    case "Precense": return value === "Detected" ? '<i class="fas fa-walking"></i>' : '<i class="fas fa-user-slash"></i>';
-    case "Lamp": return value === "ON" ? '<i class="fas fa-lightbulb"></i>' : '<i class="far fa-lightbulb"></i>';
-    case "Pump": return value === "ON"
+    case "Temperature": 
+      return '<i class="fas fa-thermometer-half"></i>';
+    case "Humidity": 
+      return '<i class="fas fa-tint"></i>';
+    case "Cistern Level": 
+      return '<i class="fas fa-water"></i>';
+    case "Well Level": 
+      return value === "FULL"
+      ? '<i class="fas fa-water" style="color:#5bc0de;"></i>'
+      : '<i class="fas fa-water" style="color:gray;"></i>';
+    case "Ambient Light": 
+      return value === "Dark" 
+      ? '<i class="fas fa-moon"></i>' 
+      : '<i class="fas fa-sun"></i>';
+    case "Precense": 
+      return value === "Detected" 
+      ? '<i class="fas fa-walking"></i>' 
+      : '<i class="fas fa-user-slash"></i>';
+    case "Lamp": 
+      return value === "ON" 
+      ? '<i class="fas fa-lightbulb"></i>' 
+      : '<i class="far fa-lightbulb"></i>';
+    case "Pump": 
+      return value === "ON"
       ? '<i class="fas fa-faucet" style="color:lightblue;"></i>'
       : '<i class="fas fa-faucet" style="color:gray;"></i>';
-    case "Sensor Fault": return value === "YES" ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
     case "Irrigation": 
       return value === "ON" 
         ? '<i class="fas fa-cloud-showers-water" style="color:#5bc0de;"></i>' 
@@ -79,14 +95,17 @@ function createOrUpdateCard(groupEl, title, unit, key, data) {
   const id = `card-${key}`;
   let card = document.getElementById(id);
 
-  /** Determine the value to display in the card based on the data key */
-  const value = data[key] !== undefined
+  let displayTitle = title;
+  let displayValue;
+  let displayUnit = unit;
+
+  displayValue = data[key] !== undefined
     ? key === "ldr" ? (data[key] === "1" ? "Dark" : "Light")
     : key === "pir" ? (data[key] === "0" ? "None" : "Detected")
     : key === "pmp" ? (data[key] === "0" ? "OFF" : "ON")
-    : key === "flt" ? (data[key] === "0" ? "NO" : "YES")
     : key === "lmp" ? (data[key] === "1" ? "ON" : "OFF")
     : key === "irr" ? (data[key] === "1" ? "ON" : "OFF")
+    : key === "well" ? (data[key] === "0" ? "FULL" : "LOW")
     : data[key]
     : "N/A";
 
@@ -94,8 +113,8 @@ function createOrUpdateCard(groupEl, title, unit, key, data) {
   if (data.timestamp) {
     historyData[key].push({ 
       timestamp: data.timestamp, 
-      value: value, 
-      unit: unit 
+      value: displayValue, 
+      unit: displayUnit 
     });
 
     /** Keep only the last 60 entries in history */
@@ -113,9 +132,9 @@ function createOrUpdateCard(groupEl, title, unit, key, data) {
     card.innerHTML = `
       <div class="card-inner">
         <div class="card-front">
-          ${getIcon(title, value)}
-          <h3>${title}</h3>
-          <p><span class="value">${value}</span> <span>${unit}</span></p>
+          ${getIcon(displayTitle, displayValue)}
+          <h3>${displayTitle}</h3>
+          <p><span class="value">${displayValue}</span> <span>${displayUnit}</span></p>
         </div>
         <div class="card-back">
           <h4>History</h4>
@@ -127,12 +146,21 @@ function createOrUpdateCard(groupEl, title, unit, key, data) {
   } else {
     /** Update the value in the existing card */
     const valueEl = card.querySelector(".value");
-    const oldValue = valueEl.textContent;
-    if (oldValue !== value) {
-      valueEl.textContent = value;
-      card.querySelector("i").outerHTML = getIcon(title, value);
+    const oldRawValue = card.dataset.rawValue;
+    card.dataset.rawValue = data[key];
+
+    // Update title and icon if needed
+    card.querySelector("h3").textContent = displayTitle;
+    card.querySelector("i").outerHTML = getIcon(displayTitle, displayValue);
+
+    /* For comparison, use the raw data value (not the formatted/displayed value) */  
+    if (oldRawValue !== undefined && oldRawValue !== String(data[key])) {
+      valueEl.textContent = displayValue;
       card.classList.add("flash"); /** Flash the card to indicate an update */
       setTimeout(() => card.classList.remove("flash"), 800);
+    } else if (oldRawValue === undefined) {
+      /** On first render, just set the value */ 
+      valueEl.textContent = displayValue;
     }
   }
 }
@@ -147,7 +175,7 @@ function flipCard(card, key) {
     const historyList = card.querySelector(".history-list");
     historyList.innerHTML = "";
 
-    const type = ["lmp", "pmp", "flt", "irr"].includes(key) ? "actuators" : "sensors";
+    const type = ["lmp", "pmp", "irr"].includes(key) ? "actuators" : "sensors";
     if (!window.selectedChipId) {
       historyList.innerHTML = "<div class='history-item'>No device selected.</div>";
       return;
@@ -166,9 +194,9 @@ function flipCard(card, key) {
             ? key === "ldr" ? (item[key] === "1" ? "Dark" : "Light")
             : key === "pir" ? (item[key] === "0" ? "None" : "Detected")
             : key === "pmp" ? (item[key] === "0" ? "OFF" : "ON")
-            : key === "flt" ? (item[key] === "0" ? "NO" : "YES")
             : key === "lmp" ? (item[key] === "1" ? "ON" : "OFF")
             : key === "irr" ? (item[key] === "1" ? "ON" : "OFF")
+            : key === "well" ? (item[key] === "0" ? "FULL" : "LOW")
             : item[key]
             : "N/A";
 
@@ -198,12 +226,11 @@ function flipCard(card, key) {
 async function updateDashboard() {
   if (!window.selectedChipId) {
     document.getElementById("status-text").textContent = "Please register and select a device.";
-    // Optionally, hide cards/groups here
     return;
   }
 
   const g1 = document.getElementById("group1"); // Group for cards like Ambient Light, Presence, and Lamp
-  const g2 = document.getElementById("group2"); // Group for cards like Water Level, Sensor Fault, and Pump
+  const g2 = document.getElementById("group2"); // Group for cards like Water Level and Pump
   const g3 = document.getElementById("group3"); // Group for cards like Temperature and Humidity
   const status = document.getElementById("status"); // Status display area
 
@@ -215,7 +242,8 @@ async function updateDashboard() {
     console.log("Updating sensor data:", sensorData);
     createOrUpdateCard(g1, "Ambient Light", "", "ldr", sensorData);
     createOrUpdateCard(g1, "Precense", "", "pir", sensorData);
-    createOrUpdateCard(g2, "Water Level", "%", "lvl", sensorData);
+    createOrUpdateCard(g2, "Cistern Level", "%", "lvl", sensorData);
+    createOrUpdateCard(g2, "Well Level", "", "well", sensorData);
     createOrUpdateCard(g3, "Temperature", "°C", "tmp", sensorData);
     createOrUpdateCard(g3, "Humidity", "%", "hum", sensorData);
 
@@ -228,7 +256,6 @@ async function updateDashboard() {
   if (actuatorData) {
     console.log("Updating actuator data:", actuatorData);
     createOrUpdateCard(g1, "Lamp", "", "lmp", actuatorData);
-    createOrUpdateCard(g2, "Sensor Fault", "", "flt", actuatorData);
     createOrUpdateCard(g2, "Pump", "", "pmp", actuatorData);
     createOrUpdateCard(g3, "Irrigation", "", "irr", actuatorData);
   }

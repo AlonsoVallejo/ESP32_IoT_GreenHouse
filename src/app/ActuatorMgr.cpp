@@ -2,28 +2,12 @@
 
 /**
  * @brief Constructs the ActuatorManager object and initializes all actuators.
- * @param ledIndicator Pointer to the Actuator object for the LED indicator.
  * @param irrigator Pointer to the Actuator object for the irrigator.
  * @param pump Pointer to the Actuator object for the pump.
  * @param lamp Pointer to the Actuator object for the lamp.
  */
-ActuatorManager::ActuatorManager(Actuator* ledIndicator, Actuator* irrigator, Actuator* pump, Actuator* lamp)
-    : ledIndicator(ledIndicator), irrigator(irrigator), pump(pump), lamp(lamp) {}
-
-/**
- * @brief Resets the LED indicator to LOW state.
- */
-void ActuatorManager::resetLedIndicator() {
-    ledIndicator->SetOutState(LOW); // Update internal state
-}
-
-/**
- * @brief Toggles the LED indicator state.
- * @param state The desired state (true for HIGH, false for LOW).
- */
-void ActuatorManager::setLedIndicator(bool state) {
-    ledIndicator->SetOutState(state);
-}
+ActuatorManager::ActuatorManager(Actuator* irrigator, Actuator* pump, Actuator* lamp)
+    : irrigator(irrigator), pump(pump), lamp(lamp) {}
 
 /**
  * @brief Sets the state of the irrigator.
@@ -53,18 +37,9 @@ void ActuatorManager::setLampState(bool state) {
  * @brief Applies the internal states of all actuators to the hardware outputs.
  */
 void ActuatorManager::applyState() {
-    ledIndicator->setActuatorState(ledIndicator->getOutstate());
     irrigator->setActuatorState(irrigator->getOutstate());
     pump->setActuatorState(pump->getOutstate());
     lamp->setActuatorState(lamp->getOutstate());
-}
-
-/**
- * @brief Gets the LED indicator actuator.
- * @return Pointer to the LED indicator actuator.
- */
-Actuator* ActuatorManager::getLedIndicator() const {
-    return ledIndicator;
 }
 
 /**

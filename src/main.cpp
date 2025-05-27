@@ -12,11 +12,11 @@ using namespace std;
 #define SENSOR_HUM_TEMP_PIN     (SHIELD_DAC1_D25)
 #define SENSOR_LDR_PIN          (SHIELD_BUZZER_D15) 
 #define SENSOR_PIR_PIN          (SHIELD_DHT11_D13)
+#define SENSOR_WELL_PIN         (SHIELD_OPTOIN1_D26)
 #define SENSOR_PB_SELECT_PIN    (SHIELD_PUSHB1_D33)
 #define SENSOR_PB_ESC_PIN       (SHIELD_PUSHB3_D34)
 #define SENSOR_PB_UP_PIN        (SHIELD_PUSHB2_D35)
 #define SENSOR_PB_DOWN_PIN      (SHIELD_PUSHB4_D32)
-#define ACTUATOR_LED_FAULT_PIN  (SHIELD_LED4_D14)
 #define ACTUATOR_IRRIGATOR_PIN  (SHIELD_RELAY1_D4)
 #define ACTUATOR_PUMP_PIN       (SHIELD_RELAY2_D2)
 #define ACTUATOR_LAMP_PIN       (SHIELD_LED3_D12)
@@ -64,6 +64,7 @@ void TaskReadSensors(void* pvParameters) {
         data->sensorMgr->readButtonEsc();
         data->sensorMgr->readButtonUp();
         data->sensorMgr->readButtonDown();
+        data->sensorMgr->readWellSensor();
 
         /* Read temperature and humidity periodically */
         if (currentMillis - lastTempHumReadTime >= SUBTASK_INTERVAL_2000_MS) {
@@ -165,9 +166,9 @@ void TaskDisplay(void* pvParameters) {
             LogSerial(" Hum: " + String(data->sensorMgr->getHumidity()) + "%", IsLog);
             LogSerial(" ldr: " + String(data->sensorMgr->getLightSensorValue()), IsLog);
             LogSerial(" PIR: " + String(data->PirPresenceDetected), IsLog);
+            LogSerial(" Well: " + String(data->sensorMgr->getWellSensorValue()), IsLog);
             LogSerial(" lamp: " + String(data->actuatorMgr->getLamp()->getOutstate()), IsLog);
             LogSerial(" Pump: " + String(data->actuatorMgr->getPump()->getOutstate()), IsLog);
-            LogSerial(" lvlFlt: " + String(data->actuatorMgr->getLedIndicator()->getOutstate()), IsLog);
             LogSerialn(" Irgtr: " + String(data->actuatorMgr->getIrrigator()->getOutstate()), IsLog);
         }
         
@@ -246,6 +247,9 @@ void TaskSendDataToServer(void* pvParameters) {
                 LogSerialn("Sending Sensor/Actuator data to server...", IsLog);
                 sendSensActHistory(data);
             }
+        } else if (data->currentDisplayDataSelec == SCREEN_WIFI_SETT_MENU || data->currentDisplayDataSelec == SCREEN_WIFI_SETT_SUB_MENU) {
+            /* Let full control to the user to cofigure a new wifi network */
+            customTaskDelay = SUBTASK_INTERVAL_500_MS;
         } else {
             customTaskDelay = SUBTASK_INTERVAL_100_MS;
             wifiConnectedMessagePrinted = false; /* Reset the flag when WiFi is disconnected */ 
@@ -254,7 +258,7 @@ void TaskSendDataToServer(void* pvParameters) {
                 wifiConnecting = true; /* Set the flag to prevent multiple connection attempts */ 
                 lastWifiAttempt = now;
                 LogSerialn("WiFi disconnected! Attempting to reconnect...", IsLog);
-                data->wifiManager->connectWiFi();
+                data->wifiManager->connectToNetwork(data->wifiManager->getSSID(), data->wifiManager->getPassword());
             }
         }
 
@@ -276,9 +280,9 @@ void setup() {
         LogSerialn("Failed to create mutex", true);
     }
 
-    const char* ssid = "DUMMY_WIFI_SSID"; /* ESP32 WROOM32 works with 2.4GHz signals */
-    const char* password = "DUMMY_WIFI_PASSWORD"; /* WiFi password */
-    const char* BackendServerUrl = "http://192.168.100.9:3000/"; /* Base URL for the backend server */
+    const char* Dev_ssid = "DUMMY_WIFI_SSID"; /* Dev is able to hardcode the ssid to connect */
+    const char* Dev_password = "DUMMY_WIFI_PASSWORD"; /* Dev is able to hardcode the password to connect */
+    const char* BackendServerUrl = "http://192.168.100.9:3000/"; /* Use hostname IP in case server is running locally */
 
     static AnalogSensor analogSensor(SENSOR_LVL_PIN);
     static Dht11TempHumSens dht11Sensor(SENSOR_HUM_TEMP_PIN);
@@ -288,7 +292,8 @@ void setup() {
     static DigitalSensor pbEscSensor(SENSOR_PB_ESC_PIN);
     static DigitalSensor pbUpSensor(SENSOR_PB_UP_PIN);
     static DigitalSensor pbDownSensor(SENSOR_PB_DOWN_PIN);
-
+    static DigitalSensor wellSensor(SENSOR_WELL_PIN);
+    
     static SensorManager sensorManager(
         &analogSensor,
         &dht11Sensor,
@@ -297,31 +302,33 @@ void setup() {
         &pbSelectSensor,
         &pbEscSensor,
         &pbUpSensor,
-        &pbDownSensor
+        &pbDownSensor,
+        &wellSensor
     );
 
-    static Actuator ledFaultActuator(ACTUATOR_LED_FAULT_PIN);
     static Actuator irrigatorActuator(ACTUATOR_IRRIGATOR_PIN);
     static Actuator pumpActuator(ACTUATOR_PUMP_PIN);
     static Actuator lampActuator(ACTUATOR_LAMP_PIN);
 
     static ActuatorManager actuatorManager(
-        &ledFaultActuator,
         &irrigatorActuator,
         &pumpActuator,
         &lampActuator
     );
 
     static OledDisplay oledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_ADDRESS);
-    static WiFiManager wifiManager(ssid, password);
+    static WiFiManager wifiManager(Dev_ssid, Dev_password);
 
     /* Try to load saved credentials and connect */ 
     String savedSsid, savedPassword;
-    if (wifiManager.loadCredentials(savedSsid, savedPassword)) {
+    if(Dev_ssid != "DUMMY_WIFI_SSID" && Dev_password != "DUMMY_WIFI_PASSWORD") {
+        LogSerialn("Using hardcoded WiFi credentials.", true);
+        wifiManager.setSSID(Dev_ssid);
+        wifiManager.setPassword(Dev_password);
+    } else if (wifiManager.loadCredentials(savedSsid, savedPassword)) {
         LogSerialn("Loaded saved WiFi credentials for: " + savedSsid, true);
         wifiManager.setSSID(savedSsid.c_str());
         wifiManager.setPassword(savedPassword.c_str());
-        wifiManager.connectWiFi();
 
     } else {
         LogSerialn("No saved WiFi credentials found.", true);

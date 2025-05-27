@@ -12,7 +12,8 @@ public:
                   DigitalSensor* buttonSelector, 
                   DigitalSensor* buttonEsc, 
                   DigitalSensor* buttonUp, 
-                  DigitalSensor* buttonDown);
+                  DigitalSensor* buttonDown,
+                  DigitalSensor* wellSensor);
 
     void readLevelSensor();
     void readDht11TempHumSens();
@@ -22,6 +23,7 @@ public:
     void readButtonEsc();
     void readButtonUp();
     void readButtonDown();
+    void readWellSensor();
 
     uint16_t getLevelSensorValue() const;
     double getTemperature() const;
@@ -32,6 +34,7 @@ public:
     bool getButtonEscValue() const;
     bool getButtonUpValue() const;  
     bool getButtonDownValue() const;
+    bool getWellSensorValue() const;
 
     Dht11TempHumSens* getTempHumSensor() const;
 
@@ -44,6 +47,7 @@ private:
     DigitalSensor* buttonEsc;
     DigitalSensor* buttonUp;
     DigitalSensor* buttonDown;
+    DigitalSensor* wellSensor;
 
     uint16_t levelValue;
     double temperature;
@@ -55,6 +59,7 @@ private:
     bool buttonUpValue;
     bool buttonDownValue;
     bool buttonSelectorValue;
+    bool wellSensorValue;
 };
 
 #endif // SENSOR_MGR_H

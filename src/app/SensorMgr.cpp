@@ -7,6 +7,10 @@
  * @param pirSensor Pointer to the DigitalSensor object for the PIR sensor.
  * @param lightSensor Pointer to the DigitalSensor object for the light sensor.
  * @param buttonSelector Pointer to the DigitalSensor object for the button selector.
+ * @param buttonEsc Pointer to the DigitalSensor object for the ESC button.
+ * @param buttonUp Pointer to the DigitalSensor object for the UP button.
+ * @param buttonDown Pointer to the DigitalSensor object for the DOWN button.
+ * @param wellSensor Pointer to the DigitalSensor object for the well sensor.
  */
 SensorManager::SensorManager(AnalogSensor* levelSensor, 
                              Dht11TempHumSens* tempHumSensor, 
@@ -15,7 +19,8 @@ SensorManager::SensorManager(AnalogSensor* levelSensor,
                              DigitalSensor* buttonSelector, 
                              DigitalSensor* buttonEsc, 
                              DigitalSensor* buttonUp, 
-                             DigitalSensor* buttonDown) 
+                             DigitalSensor* buttonDown,
+                             DigitalSensor* wellSensor) 
                              : 
                              levelSensor(levelSensor), 
                              tempHumSensor(tempHumSensor), 
@@ -24,7 +29,8 @@ SensorManager::SensorManager(AnalogSensor* levelSensor,
                              buttonSelector(buttonSelector), 
                              buttonEsc(buttonEsc),
                              buttonUp(buttonUp),
-                             buttonDown(buttonDown) {}
+                             buttonDown(buttonDown),
+                             wellSensor(wellSensor) {}
 
 /**
  * @brief Reads the level sensor and updates the internal value.
@@ -81,6 +87,15 @@ void SensorManager::readButtonUp() {
  */
 void SensorManager::readButtonDown() {
     buttonDownValue = buttonDown->readRawValue();
+}
+
+/**
+ * @brief Reads the well sensor and updates the internal value.
+ * 
+ */
+void SensorManager::readWellSensor() {
+    /* Invert the value since the well sensor is active LOW */
+    wellSensorValue = !(wellSensor->readRawValue());  
 }
 
 /**
@@ -154,6 +169,15 @@ bool SensorManager::getButtonUpValue() const {
 bool SensorManager::getButtonDownValue() const {
     return buttonDownValue;
 }
+
+/**
+ * @brief Gets the last recorded value of the well sensor.
+ * @return The digital state of the well sensor (true for HIGH, false for LOW).
+ */
+bool SensorManager::getWellSensorValue() const {
+    return wellSensorValue;
+}
+
 /**
  * @brief Gets the pointer to the Dht11TempHumSens object.
  * @return Pointer to the Dht11TempHumSens object.

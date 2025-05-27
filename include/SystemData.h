@@ -8,9 +8,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
-#define SENSOR_LVL_OPENCKT_V   (3975) // ADC value for open circuit
-#define SENSOR_LVL_STG_V       (124)  // ADC value for short circuit
-#define SENSOR_LVL_THRESHOLD_V (50)  // ADC Threshold for level sensor
+#define SENSOR_LVL_ADC_100_V   (3975) /* ADC value for 100% water level */ 
+#define SENSOR_LVL_ADC_0_V     (124) /*  ADC value for 0% water level */
+#define SENSOR_LVL_THRESHOLD_V (50) /* Threshold voltage for level sensor */
 
 #define LED_NO_FAIL_INDICATE (0x00) 
 #define LED_FAIL_INDICATE    (0x01) 
