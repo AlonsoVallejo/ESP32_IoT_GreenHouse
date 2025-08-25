@@ -60,9 +60,14 @@ RegisteredDevices/
    npm install
    ```
 
-3. Install additional required modules:
+3. **Install required modules individually if needed:**
    ```bash
-   npm install node-fetch moment firebase-admin express body-parser cors
+   npm install node-fetch
+   npm install moment-timezone
+   npm install firebase-admin
+   npm install express
+   npm install body-parser
+   npm install cors
    ```
 
 4. Create and add your Firebase service account JSON credentials file as `esp32_project_serviceAccountKey.json` in the root folder.
